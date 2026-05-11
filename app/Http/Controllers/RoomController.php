@@ -27,14 +27,20 @@ class RoomController extends Controller
             'type' => 'required|in:public,private',
             'max_players' => 'required|integer|min:3|max:8',
             'rounds_per_game' => 'required|integer|min:1|max:5',
+            'language' => 'required|in:en,ar',
         ]);
 
-        $result = $this->gameService->createRoom(
-            $validated['nickname'],
-            $validated['type'],
-            $validated['max_players'],
-            $validated['rounds_per_game']
-        );
+        try {
+            $result = $this->gameService->createRoom(
+                $validated['nickname'],
+                $validated['type'],
+                $validated['max_players'],
+                $validated['rounds_per_game'],
+                $validated['language']
+            );
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
 
         session([
             'player_id' => $result['player']['id'],
@@ -51,10 +57,14 @@ class RoomController extends Controller
             'nickname' => 'required|string|max:20',
         ]);
 
-        $result = $this->gameService->joinRoom(
-            strtoupper($validated['code']),
-            $validated['nickname']
-        );
+        try {
+            $result = $this->gameService->joinRoom(
+                strtoupper($validated['code']),
+                $validated['nickname']
+            );
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
 
         session([
             'player_id' => $result['player']['id'],
@@ -73,7 +83,12 @@ class RoomController extends Controller
             return redirect()->route('home');
         }
 
-        $state = $this->gameService->getGameState($roomId, $playerId);
+        try {
+            $state = $this->gameService->getGameState($roomId, $playerId);
+        } catch (\Exception $e) {
+            session()->forget(['player_id', 'room_id']);
+            return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
+        }
 
         if ($state['room']['status'] === 'waiting' || $state['room']['status'] === 'ready') {
             return Inertia::render('Room', $state);
@@ -84,23 +99,54 @@ class RoomController extends Controller
 
     public function toggleReady(Request $request)
     {
-        $playerId = session('player_id');
+        $playerId = $request->input('player_id') ?? session('player_id');
         if (!$playerId) {
             return redirect()->route('home');
         }
 
-        $result = $this->gameService->toggleReady($playerId);
+        try {
+            $this->gameService->toggleReady($playerId);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
         return back();
     }
 
     public function startGame(Request $request, string $code)
     {
-        $roomId = session('room_id');
-        if (!$roomId) {
+        $playerId = $request->input('player_id') ?? session('player_id');
+        $roomId = $request->input('room_id') ?? session('room_id');
+        if (!$playerId || !$roomId) {
             return redirect()->route('home');
         }
 
-        $this->gameService->startGame($roomId);
+        try {
+            $this->gameService->startGame($roomId);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
         return redirect()->route('game.show', $code);
+    }
+
+    public function leaveRoom(Request $request)
+    {
+        $playerId = $request->input('player_id') ?? session('player_id');
+        if (!$playerId) {
+            return redirect()->route('home');
+        }
+
+        try {
+            $this->gameService->leaveRoom($playerId);
+        } catch (\Exception $e) {
+            return redirect()->route('home');
+        }
+
+        if (session('player_id') == $playerId) {
+            session()->forget(['player_id', 'room_id']);
+        }
+
+        return redirect()->route('home');
     }
 }

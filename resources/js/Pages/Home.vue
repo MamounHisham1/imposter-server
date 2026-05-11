@@ -1,9 +1,11 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
+import { useToast } from '../Composables/useToast';
 
 const { t } = useI18n();
+const { error: toastError } = useToast();
 
 const props = defineProps({
     rooms: {
@@ -13,12 +15,46 @@ const props = defineProps({
 });
 
 const activePanel = ref(null); // 'create' | 'join' | null
+const localRooms = ref([...props.rooms]);
+
+onMounted(() => {
+    if (window.Echo) {
+        window.Echo.channel('public-rooms')
+            .listen('.rooms.event', (e) => {
+                switch (e.action) {
+                    case 'created':
+                        if (!localRooms.value.find((r) => r.id === e.room.id)) {
+                            localRooms.value.unshift(e.room);
+                        }
+                        break;
+                    case 'updated':
+                        const idx = localRooms.value.findIndex((r) => r.id === e.room.id);
+                        if (idx !== -1) {
+                            localRooms.value[idx] = e.room;
+                        } else {
+                            localRooms.value.unshift(e.room);
+                        }
+                        break;
+                    case 'removed':
+                        localRooms.value = localRooms.value.filter((r) => r.id !== e.room.id);
+                        break;
+                }
+            });
+    }
+});
+
+onUnmounted(() => {
+    if (window.Echo) {
+        window.Echo.leaveChannel('public-rooms');
+    }
+});
 
 const createForm = useForm({
     nickname: '',
     type: 'public',
     max_players: 6,
     rounds_per_game: 3,
+    language: 'en',
 });
 
 const joinForm = useForm({
@@ -36,19 +72,26 @@ function showJoin() {
 
 function submitCreate() {
     createForm.post('/room', {
-        onSuccess: () => {},
+        onError: (errors) => {
+            const msg = Object.values(errors)[0];
+            if (msg) toastError(msg);
+        },
     });
 }
 
 function submitJoin() {
     joinForm.post('/room/join', {
-        onSuccess: () => {},
+        onError: (errors) => {
+            const msg = Object.values(errors)[0];
+            if (msg) toastError(msg);
+        },
     });
 }
 </script>
 
 <template>
     <div class="min-h-screen bg-[#000a00] text-[#33ff66] flex flex-col items-center px-4 py-8">
+        <Toast />
         <!-- Title -->
         <h1
             class="text-5xl sm:text-7xl font-extrabold tracking-[0.4em] mb-2 text-center"
@@ -188,6 +231,41 @@ function submitJoin() {
                         </div>
                     </div>
 
+                    <!-- Language Toggle -->
+                    <div>
+                        <label class="block text-xs font-bold tracking-wider mb-2 text-[#00ff41]/70 uppercase">
+                            {{ t('language') }}
+                        </label>
+                        <div class="flex gap-2">
+                            <button
+                                type="button"
+                                @click="createForm.language = 'en'"
+                                :class="[
+                                    'flex-1 py-2 text-sm font-bold tracking-wider border transition-all',
+                                    createForm.language === 'en'
+                                        ? 'border-[#00ff41] bg-[#00ff41]/15 text-[#00ff41]'
+                                        : 'border-[#00ff41]/20 bg-transparent text-[#00ff41]/40 hover:border-[#00ff41]/40',
+                                ]"
+                                style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
+                            >
+                                {{ t('english') }}
+                            </button>
+                            <button
+                                type="button"
+                                @click="createForm.language = 'ar'"
+                                :class="[
+                                    'flex-1 py-2 text-sm font-bold tracking-wider border transition-all',
+                                    createForm.language === 'ar'
+                                        ? 'border-[#00ff41] bg-[#00ff41]/15 text-[#00ff41]'
+                                        : 'border-[#00ff41]/20 bg-transparent text-[#00ff41]/40 hover:border-[#00ff41]/40',
+                                ]"
+                                style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
+                            >
+                                {{ t('arabic') }}
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Max Players Slider -->
                     <div>
                         <label class="block text-xs font-bold tracking-wider mb-1 text-[#00ff41]/70 uppercase">
@@ -303,13 +381,13 @@ function submitJoin() {
                 {{ t('public_rooms') }}
             </h2>
 
-            <div v-if="rooms.length === 0" class="text-center text-[#00ff41]/30 text-sm py-8 font-mono">
+            <div v-if="localRooms.length === 0" class="text-center text-[#00ff41]/30 text-sm py-8 font-mono">
                 {{ t('no_rooms') }}
             </div>
 
             <div v-else class="space-y-2">
                 <button
-                    v-for="room in rooms"
+                    v-for="room in localRooms"
                     :key="room.id"
                     @click="activePanel = 'join'; joinForm.code = room.code"
                     class="w-full flex items-center justify-between bg-[#001200]/60 border border-[#00ff41]/20 px-4 py-3 hover:border-[#00ff41]/50 transition-colors"

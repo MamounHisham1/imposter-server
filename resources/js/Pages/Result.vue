@@ -2,9 +2,11 @@
 import { ref, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
+import { useToast } from '../Composables/useToast';
 import GameLayout from '../layouts/GameLayout.vue';
 
 const { t } = useI18n();
+const { error: toastError } = useToast();
 
 const props = defineProps({
     room: Object,
@@ -51,6 +53,7 @@ function backToLobby() {
 
 <template>
     <GameLayout :room-code="room.code">
+        <Toast />
         <div class="max-w-lg mx-auto space-y-6 py-4">
             <!-- Winner Banner -->
             <div class="text-center py-8">
@@ -105,7 +108,7 @@ function backToLobby() {
                 <!-- Loading state before reveal -->
                 <div v-if="!revealPhase" class="space-y-4">
                     <div class="w-16 h-16 mx-auto rounded-full border-2 border-[#00ff41]/30 border-t-[#00ff41] animate-spin"></div>
-                    <p class="text-sm text-[#00ff41]/40 font-mono tracking-wider">Revealing...</p>
+                    <p class="text-sm text-[#00ff41]/40 font-mono tracking-wider">{{ t('revealing') }}</p>
                 </div>
             </div>
 
@@ -116,7 +119,7 @@ function backToLobby() {
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke-linejoin="round" />
                         </svg>
-                        Scores
+                        {{ t('scores') }}
                     </h3>
                     <div class="space-y-2">
                         <div
@@ -136,8 +139,8 @@ function backToLobby() {
                                 </div>
                                 <span class="font-mono text-sm" :class="p.id === player.id ? 'text-[#33ff66]' : 'text-[#00ff41]/60'">
                                     {{ p.nickname }}
-                                    <span v-if="p.id === imposter?.id" class="text-[#ff3333]/50 text-[10px] ml-1">IMPOSTER</span>
-                                    <span v-if="p.id === player.id" class="text-[#00ff41]/30 text-[10px] ml-1">(You)</span>
+                                    <span v-if="p.id === imposter?.id" class="text-[#ff3333]/50 text-[10px] ml-1">{{ t('imposter') }}</span>
+                                    <span v-if="p.id === player.id" class="text-[#00ff41]/30 text-[10px] ml-1">{{ t('you') }}</span>
                                 </span>
                             </div>
                             <span class="font-mono font-bold text-[#00ff41]">{{ p.score || 0 }}</span>

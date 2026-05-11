@@ -2,9 +2,11 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
+import { useToast } from '../Composables/useToast';
 import GameLayout from '../layouts/GameLayout.vue';
 
 const { t } = useI18n();
+const { error: toastError } = useToast();
 
 const props = defineProps({
     room: Object,
@@ -18,19 +20,26 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
-    currentTurn: {
-        type: Object,
+    word: {
+        type: String,
+        default: null,
+    },
+    hint_for_imposter: {
+        type: String,
         default: null,
     },
 });
 
 const localHints = ref([...(props.hints || [])]);
-const localCurrentTurn = ref(props.currentTurn);
-const localRound = ref(props.round);
 const hintInput = ref('');
+const localCurrentTurn = ref(props.round?.current_turn || null);
+const localRound = ref(props.round || null);
+const localWord = ref(props.word || null);
+const localHintForImposter = ref(props.hint_for_imposter || null);
+const hintsComplete = ref(false);
 
-const isMyTurn = computed(() => {
-    return localCurrentTurn.value && localCurrentTurn.value.player_id === props.player.id;
+const isCreator = computed(() => {
+    return props.player.id === props.room.creator_id;
 });
 
 const wordLabel = computed(() => {
@@ -39,9 +48,13 @@ const wordLabel = computed(() => {
 
 const wordValue = computed(() => {
     if (props.player.is_imposter) {
-        return localRound.value?.imposter_hint || '???';
+        return localHintForImposter.value || '???';
     }
-    return localRound.value?.word || '';
+    return localWord.value || '';
+});
+
+const hasSubmittedHint = computed(() => {
+    return localHints.value.some((h) => h.player_id === props.player.id);
 });
 
 function submitHint() {
@@ -49,7 +62,7 @@ function submitHint() {
 
     router.post(
         '/game/' + props.room.code + '/hint',
-        { content: hintInput.value.trim() },
+        { content: hintInput.value.trim(), player_id: props.player.id },
         {
             preserveScroll: true,
             onSuccess: () => {
@@ -59,7 +72,18 @@ function submitHint() {
     );
 }
 
-// Echo listeners
+function continueHints() {
+    router.post('/game/' + props.room.code + '/next-round', {
+        player_id: props.player.id,
+    });
+}
+
+function goToVoting() {
+    router.post('/game/' + props.room.code + '/start-voting', {
+        player_id: props.player.id,
+    });
+}
+
 onMounted(() => {
     if (window.Echo) {
         window.Echo.channel('room.' + props.room.id)
@@ -70,8 +94,17 @@ onMounted(() => {
                             localHints.value = e.hints;
                         }
                         break;
+                    case 'hints_complete':
+                        if (e.hints) localHints.value = e.hints;
+                        hintsComplete.value = true;
+                        break;
                     case 'round_complete':
                         if (e.hints) localHints.value = e.hints;
+                        if (e.current_round) localRound.value = e.current_round;
+                        if (e.word !== undefined) localWord.value = e.word;
+                        if (e.hint_for_imposter !== undefined) localHintForImposter.value = e.hint_for_imposter;
+                        hintInput.value = '';
+                        hintsComplete.value = false;
                         break;
                     case 'voting_started':
                         router.visit('/game/' + props.room.code + '/vote');
@@ -90,24 +123,22 @@ onUnmounted(() => {
 
 <template>
     <GameLayout :room-code="room.code">
+        <Toast />
         <div class="max-w-lg mx-auto space-y-5">
-            <!-- Round Badge -->
             <div class="flex items-center justify-center gap-3">
                 <div
                     class="px-4 py-1 text-xs font-bold tracking-[0.3em] border border-[#00ff41]/40 bg-[#00ff41]/10 text-[#00ff41]"
                     style="clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);"
                 >
-                    ROUND {{ round?.number || 1 }} / {{ room.rounds_per_game }}
+                    {{ t('round') }} {{ localRound?.round_number || round?.round_number || 1 }}
                 </div>
             </div>
 
-            <!-- Timer placeholder -->
             <div class="flex justify-center">
                 <div
                     class="w-20 h-20 rounded-full border-2 border-[#00ff41]/30 flex items-center justify-center"
                     style="box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);"
                 >
-                    <!-- Clock SVG -->
                     <svg class="w-8 h-8 text-[#00ff41]/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                         <circle cx="12" cy="12" r="10" />
                         <polyline points="12 6 12 12 16 14" stroke-linecap="round" />
@@ -115,7 +146,6 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <!-- Word Card -->
             <div
                 class="border border-[#00ff41]/30 bg-[#001200]/80 p-6 text-center"
                 style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);"
@@ -131,11 +161,10 @@ onUnmounted(() => {
                     {{ wordValue }}
                 </p>
                 <p v-if="player.is_imposter" class="text-[10px] text-[#ff3333]/50 mt-2 tracking-wider uppercase">
-                    (You are the imposter)
+                    {{ t('you_are_imposter') }}
                 </p>
             </div>
 
-            <!-- Player List with turn indicators -->
             <div class="border border-[#00ff41]/15 bg-[#001200]/30 p-3">
                 <div class="flex flex-wrap gap-2 justify-center">
                     <div
@@ -159,7 +188,6 @@ onUnmounted(() => {
                         <span class="text-[10px] font-mono" :class="localCurrentTurn && localCurrentTurn.player_id === p.id ? 'text-[#00ff41]' : 'text-[#00ff41]/30'">
                             {{ p.nickname }}
                         </span>
-                        <!-- Active turn indicator -->
                         <div
                             v-if="localCurrentTurn && localCurrentTurn.player_id === p.id"
                             class="w-1.5 h-1.5 rounded-full bg-[#00ff41] animate-pulse"
@@ -168,13 +196,12 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <!-- Hints Area -->
             <div class="border border-[#00ff41]/20 bg-[#001200]/50 p-4">
                 <h3 class="text-xs tracking-[0.3em] text-[#00ff41]/50 uppercase mb-3 flex items-center gap-2">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                     </svg>
-                    Hints
+                    {{ t('hints') }}
                 </h3>
                 <div class="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                     <div
@@ -188,25 +215,47 @@ onUnmounted(() => {
                         <span class="text-sm text-[#33ff66]">{{ hint.content || hint.hint }}</span>
                     </div>
                     <div v-if="localHints.length === 0" class="text-center text-[#00ff41]/20 text-xs py-4 font-mono">
-                        No hints yet...
+                        {{ t('no_hints_yet') }}
                     </div>
                 </div>
             </div>
 
-            <!-- Input Area -->
-            <div class="flex gap-2">
+            <div v-if="hintsComplete && isCreator" class="flex gap-3">
+                <button
+                    @click="continueHints"
+                    class="flex-1 py-3 bg-[#00ff41]/20 border border-[#00ff41] text-[#00ff41] font-bold text-sm tracking-wider hover:bg-[#00ff41]/30 transition-all"
+                    style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
+                >
+                    {{ t('continue_hints') }}
+                </button>
+                <button
+                    @click="goToVoting"
+                    class="flex-1 py-3 bg-[#ff3333]/20 border border-[#ff3333] text-[#ff3333] font-bold text-sm tracking-wider hover:bg-[#ff3333]/30 transition-all"
+                    style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
+                >
+                    {{ t('start_voting') }}
+                </button>
+            </div>
+
+            <div v-if="hintsComplete && !isCreator" class="text-center py-3 border border-[#ffaa00]/30 bg-[#ffaa00]/5">
+                <p class="text-xs tracking-[0.2em] text-[#ffaa00]/70 font-mono animate-pulse">
+                    {{ t('waiting_for_creator') }}
+                </p>
+            </div>
+
+            <div v-if="!hintsComplete" class="flex gap-2">
                 <input
                     v-model="hintInput"
                     type="text"
                     maxlength="100"
-                    :disabled="!isMyTurn"
-                    :placeholder="isMyTurn ? t('type_hint') : 'Wait for your turn...'"
+                    :disabled="hasSubmittedHint"
+                    :placeholder="hasSubmittedHint ? t('hint_submitted') : t('type_hint')"
                     class="flex-1 bg-[#000a00] border border-[#00ff41]/30 px-4 py-3 text-[#33ff66] font-mono text-sm focus:border-[#00ff41] focus:outline-none focus:ring-1 focus:ring-[#00ff41]/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     @keyup.enter="submitHint"
                 />
                 <button
                     @click="submitHint"
-                    :disabled="!isMyTurn || !hintInput.trim()"
+                    :disabled="!hintInput.trim() || hasSubmittedHint"
                     class="px-5 py-3 bg-[#00ff41]/20 border border-[#00ff41] text-[#00ff41] font-bold tracking-wider hover:bg-[#00ff41]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
                 >

@@ -13,15 +13,27 @@ class Room extends Model
         'status',
         'max_players',
         'rounds_per_game',
+        'language',
         'current_round',
+        'word_pool',
         'creator_id',
+        'last_activity_at',
     ];
 
     protected $casts = [
         'max_players' => 'integer',
         'rounds_per_game' => 'integer',
         'current_round' => 'integer',
+        'word_pool' => 'array',
+        'last_activity_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $room) {
+            $room->last_activity_at = now();
+        });
+    }
 
     public function players()
     {
@@ -36,6 +48,11 @@ class Room extends Model
     public function creator()
     {
         return $this->belongsTo(Player::class, 'creator_id');
+    }
+
+    public function touchActivity(): void
+    {
+        $this->update(['last_activity_at' => now()]);
     }
 
     /**

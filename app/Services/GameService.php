@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\GameEvent;
+use App\Events\RoomListEvent;
 use App\Models\Hint;
 use App\Models\Player;
 use App\Models\Room;
@@ -18,20 +19,137 @@ class GameService
         private AiWordService $aiWordService,
     ) {}
 
+    private function cleanAllStale(): void
+    {
+        $staleThreshold = now()->subSeconds(60);
+
+        $stalePlayerIds = Player::where(function ($q) use ($staleThreshold) {
+            $q->where('last_heartbeat_at', '<', $staleThreshold)
+                ->orWhereNull('last_heartbeat_at');
+        })
+            ->where('created_at', '<', $staleThreshold)
+            ->pluck('id');
+
+        if ($stalePlayerIds->isEmpty()) {
+            return;
+        }
+
+        $affectedRoomIds = Player::whereIn('id', $stalePlayerIds)->pluck('room_id')->unique();
+
+        foreach ($affectedRoomIds as $roomId) {
+            $room = Room::find($roomId);
+            if (! $room) {
+                continue;
+            }
+
+            $wasCreator = $room->players()
+                ->whereIn('id', $stalePlayerIds)
+                ->where('id', $room->creator_id)
+                ->exists();
+
+            Player::whereIn('id', $stalePlayerIds)->where('room_id', $roomId)->delete();
+
+            $remainingCount = $room->fresh()->players()->count();
+
+            if ($remainingCount === 0) {
+                $room->delete();
+                if ($room->type === 'public') {
+                    broadcast(new RoomListEvent('removed', ['id' => $room->id, 'code' => $room->code]));
+                }
+                continue;
+            }
+
+            if ($wasCreator) {
+                $newCreator = $room->players()->orderBy('id')->first();
+                $room->update(['creator_id' => $newCreator->id]);
+            }
+
+            if ($room->type === 'public' && $room->status === 'waiting') {
+                broadcast(new RoomListEvent('updated', [
+                    'id' => $room->id,
+                    'code' => $room->code,
+                    'players_count' => $remainingCount,
+                    'max_players' => $room->max_players,
+                ]));
+            }
+        }
+    }
+
+    private function purgeStalePlayers(Room $room): void
+    {
+        $staleThreshold = now()->subSeconds(60);
+
+        $stalePlayerIds = $room->players()
+            ->where(function ($q) use ($staleThreshold) {
+                $q->where('last_heartbeat_at', '<', $staleThreshold)
+                    ->orWhereNull('last_heartbeat_at');
+            })
+            ->where('created_at', '<', $staleThreshold)
+            ->pluck('id');
+
+        if ($stalePlayerIds->isEmpty()) {
+            return;
+        }
+
+        $wasCreator = $room->players()
+            ->whereIn('id', $stalePlayerIds)
+            ->where('id', $room->creator_id)
+            ->exists();
+
+        Player::whereIn('id', $stalePlayerIds)->delete();
+
+        $remainingCount = $room->fresh()->players()->count();
+
+        if ($remainingCount === 0) {
+            $room->delete();
+
+            if ($room->type === 'public') {
+                broadcast(new RoomListEvent('removed', ['id' => $room->id, 'code' => $room->code]));
+            }
+
+            broadcast(new GameEvent($room->id, 'room_deleted', ['code' => $room->code]));
+
+            return;
+        }
+
+        if ($wasCreator) {
+            $newCreator = $room->fresh()->players()->orderBy('id')->first();
+            $room->update(['creator_id' => $newCreator->id]);
+
+            broadcast(new GameEvent($room->id, 'creator_changed', [
+                'new_creator_id' => $newCreator->id,
+            ]));
+        }
+
+        foreach ($stalePlayerIds as $pid) {
+            broadcast(new GameEvent($room->id, 'player_left', ['player_id' => $pid]));
+        }
+
+        if ($room->type === 'public' && $room->status === 'waiting') {
+            broadcast(new RoomListEvent('updated', [
+                'id' => $room->id,
+                'code' => $room->code,
+                'players_count' => $remainingCount,
+                'max_players' => $room->max_players,
+            ]));
+        }
+    }
+
     /**
      * Create a new game room and add the creator as the first player.
      *
      * @return array Data for broadcasting to frontend.
      */
-    public function createRoom(string $nickname, string $type, int $maxPlayers, int $roundsPerGame): array
+    public function createRoom(string $nickname, string $type, int $maxPlayers, int $roundsPerGame, string $language = 'en'): array
     {
-        return DB::transaction(function () use ($nickname, $type, $maxPlayers, $roundsPerGame) {
+        return DB::transaction(function () use ($nickname, $type, $maxPlayers, $roundsPerGame, $language) {
             $room = Room::create([
                 'code' => Room::generateCode(),
                 'type' => $type,
                 'status' => 'waiting',
                 'max_players' => $maxPlayers,
                 'rounds_per_game' => $roundsPerGame,
+                'language' => in_array($language, ['en', 'ar']) ? $language : 'en',
                 'current_round' => 0,
             ]);
 
@@ -49,6 +167,10 @@ class GameService
                 'room' => $this->formatRoom($room->fresh()),
                 'player' => $this->formatPlayer($player),
             ]));
+
+            if ($room->type === 'public') {
+                broadcast(new RoomListEvent('created', $this->formatRoom($room->fresh())));
+            }
 
             return [
                 'room' => $this->formatRoom($room->fresh()),
@@ -72,6 +194,13 @@ class GameService
             throw new \Exception('Room not found.');
         }
 
+        $this->purgeStalePlayers($room);
+
+        $room = $room->fresh();
+        if (! $room) {
+            throw new \Exception('Room no longer exists.');
+        }
+
         if ($room->status !== 'waiting') {
             throw new \Exception('Game already in progress.');
         }
@@ -92,10 +221,16 @@ class GameService
             'score' => 0,
         ]);
 
+        $room->touchActivity();
+
         broadcast(new GameEvent($room->id, 'player_joined', [
             'room' => $this->formatRoom($room->fresh()),
             'player' => $this->formatPlayer($player),
         ]));
+
+        if ($room->type === 'public') {
+            broadcast(new RoomListEvent('updated', $this->formatRoom($room->fresh())));
+        }
 
         return [
             'room' => $this->formatRoom($room->fresh()),
@@ -115,6 +250,7 @@ class GameService
 
         $player->update(['is_ready' => ! $player->is_ready]);
 
+        $room->touchActivity();
         $room = $room->fresh();
         $allReady = $room->players()->count() >= 3 && $room->players()->where('is_ready', false)->doesntExist();
 
@@ -129,6 +265,62 @@ class GameService
             'player' => $this->formatPlayer($player->fresh()),
             'all_ready' => $allReady,
         ];
+    }
+
+    /**
+     * Remove a player from a room. Transfer creator role if needed.
+     * Delete the room if no players remain.
+     */
+    public function leaveRoom(int $playerId): array
+    {
+        $player = Player::findOrFail($playerId);
+        $room = $player->room;
+
+        $wasCreator = $player->id === $room->creator_id;
+        $roomCode = $room->code;
+        $roomType = $room->type;
+        $playerId = $player->id;
+
+        $player->delete();
+
+        $remainingPlayers = $room->fresh()->players()->orderBy('id')->get();
+
+        if ($remainingPlayers->isEmpty()) {
+            $room->delete();
+
+            if ($roomType === 'public') {
+                broadcast(new RoomListEvent('removed', ['id' => $room->id, 'code' => $roomCode]));
+            }
+
+            broadcast(new GameEvent($room->id, 'room_deleted', [
+                'code' => $roomCode,
+            ]));
+
+            return ['deleted' => true, 'code' => $roomCode];
+        }
+
+        if ($wasCreator) {
+            $newCreator = $remainingPlayers->first();
+            $room->update(['creator_id' => $newCreator->id]);
+
+            broadcast(new GameEvent($room->id, 'creator_changed', [
+                'room' => $this->formatRoom($room->fresh()),
+                'new_creator_id' => $newCreator->id,
+            ]));
+        }
+
+        $room->touchActivity();
+
+        broadcast(new GameEvent($room->id, 'player_left', [
+            'room' => $this->formatRoom($room->fresh()),
+            'player_id' => $playerId,
+        ]));
+
+        if ($roomType === 'public') {
+            broadcast(new RoomListEvent('updated', $this->formatRoom($room->fresh())));
+        }
+
+        return ['deleted' => false, 'code' => $roomCode];
     }
 
     /**
@@ -158,8 +350,14 @@ class GameService
             // Gather used words from previous rounds in this room
             $usedWords = $room->rounds()->pluck('real_word')->toArray();
 
-            // Generate word via AI
-            $generated = $this->aiWordService->generateWord($usedWords);
+            // Generate the full word pool for the entire game in one AI call
+            $pool = $this->aiWordService->generateWords(
+                $room->rounds_per_game,
+                $usedWords,
+                $room->language
+            );
+
+            $generated = array_shift($pool);
 
             // Assign imposter randomly
             $imposter = $players->random();
@@ -177,12 +375,19 @@ class GameService
             $room->update([
                 'status' => 'playing',
                 'current_round' => $roundNumber,
+                'word_pool' => array_values($pool),
             ]);
+
+            $room->touchActivity();
 
             broadcast(new GameEvent($room->id, 'game_started', [
                 'room' => $this->formatRoom($room->fresh()),
                 'round' => $this->formatRound($round),
             ]));
+
+            if ($room->type === 'public') {
+                broadcast(new RoomListEvent('removed', $this->formatRoom($room->fresh())));
+            }
 
             return [
                 'room' => $this->formatRoom($room->fresh()),
@@ -219,43 +424,17 @@ class GameService
             'content' => trim($content),
         ]);
 
+        $room->touchActivity();
         $player = Player::find($playerId);
         $allHintsSubmitted = $round->hints()->count() >= $room->players()->count();
 
         if ($allHintsSubmitted) {
-            // Check if this was the last round
-            if ($round->round_number >= $room->rounds_per_game) {
-                // Transition to voting phase
-                $room->update(['status' => 'voting']);
-
-                broadcast(new GameEvent($room->id, 'voting_started', [
-                    'room' => $this->formatRoom($room->fresh()),
-                    'round' => $this->formatRound($round->fresh()),
-                    'hints' => $this->formatHints($round->fresh()->hints),
-                ]));
-            } else {
-                // Advance to next hint round
-                $nextRoundNumber = $round->round_number + 1;
-                $usedWords = $room->rounds()->pluck('real_word')->toArray();
-                $generated = $this->aiWordService->generateWord($usedWords);
-
-                $nextRound = Round::create([
-                    'room_id' => $room->id,
-                    'round_number' => $nextRoundNumber,
-                    'real_word' => $generated['word'],
-                    'imposter_hint' => $generated['hint'],
-                ]);
-
-                $room->update(['current_round' => $nextRoundNumber]);
-
-                broadcast(new GameEvent($room->id, 'round_complete', [
-                    'room' => $this->formatRoom($room->fresh()),
-                    'round' => $this->formatRound($round->fresh()),
-                    'next_round' => $this->formatRound($nextRound),
-                    'hints' => $this->formatHints($round->fresh()->hints),
-                    'all_hints_submitted' => true,
-                ]));
-            }
+            broadcast(new GameEvent($room->id, 'hints_complete', [
+                'room' => $this->formatRoom($room->fresh()),
+                'round' => $this->formatRound($round->fresh()),
+                'hints' => $this->formatHints($round->fresh()->hints),
+                'creator_id' => $room->creator_id,
+            ]));
         } else {
             broadcast(new GameEvent($room->id, 'hint_submitted', [
                 'room' => $this->formatRoom($room->fresh()),
@@ -270,6 +449,74 @@ class GameService
             'all_hints_submitted' => $allHintsSubmitted,
             'hints_count' => $round->hints()->count(),
         ];
+    }
+
+    public function advanceRound(int $roomId, int $creatorId): array
+    {
+        $room = Room::findOrFail($roomId);
+
+        if ($room->creator_id !== $creatorId) {
+            throw new \Exception('Only the room creator can advance rounds.');
+        }
+
+        if ($room->status !== 'playing') {
+            throw new \Exception('Game is not in playing state.');
+        }
+
+        $round = $room->rounds()->where('round_number', $room->current_round)->first();
+
+        if (!$round || $round->hints()->count() < $room->players()->count()) {
+            throw new \Exception('Not all hints have been submitted yet.');
+        }
+
+        $nextRoundNumber = $round->round_number + 1;
+
+        $nextRound = Round::create([
+            'room_id' => $room->id,
+            'round_number' => $nextRoundNumber,
+            'real_word' => $round->real_word,
+            'imposter_hint' => $round->imposter_hint,
+        ]);
+
+        $room->update(['current_round' => $nextRoundNumber]);
+        $room->touchActivity();
+
+        broadcast(new GameEvent($room->id, 'round_complete', [
+            'room' => $this->formatRoom($room->fresh()),
+            'round' => $this->formatRound($round->fresh()),
+            'current_round' => $this->formatRound($nextRound),
+            'hints' => $this->formatHints($round->fresh()->hints),
+            'word' => $round->real_word,
+            'hint_for_imposter' => $round->imposter_hint,
+        ]));
+
+        return ['round' => $this->formatRound($nextRound)];
+    }
+
+    public function startVoting(int $roomId, int $creatorId): array
+    {
+        $room = Room::findOrFail($roomId);
+
+        if ($room->creator_id !== $creatorId) {
+            throw new \Exception('Only the room creator can start voting.');
+        }
+
+        if ($room->status !== 'playing') {
+            throw new \Exception('Game is not in playing state.');
+        }
+
+        $room->update(['status' => 'voting']);
+        $room->touchActivity();
+
+        $round = $room->rounds()->where('round_number', $room->current_round)->first();
+
+        broadcast(new GameEvent($room->id, 'voting_started', [
+            'room' => $this->formatRoom($room->fresh()),
+            'round' => $round ? $this->formatRound($round) : null,
+            'hints' => $round ? $this->formatHints($round->hints) : [],
+        ]));
+
+        return ['status' => 'voting'];
     }
 
     /**
@@ -297,6 +544,7 @@ class GameService
             'target_id' => $targetId,
         ]);
 
+        $room->touchActivity();
         $allVotesSubmitted = $round->votes()->count() >= $room->players()->count();
 
         $voter = Player::find($voterId);
@@ -437,9 +685,15 @@ class GameService
             // Reset imposter status
             $room->players()->update(['is_imposter' => false]);
 
-            // Generate new word for next round
-            $usedWords = $room->rounds()->pluck('real_word')->toArray();
-            $generated = $this->aiWordService->generateWord($usedWords);
+            // Pull the next word/hint from the pre-generated pool; fall back to a
+            // single AI call only if the pool is empty (e.g. older room or partial generation).
+            $pool = $room->word_pool ?? [];
+            if (! empty($pool)) {
+                $generated = array_shift($pool);
+            } else {
+                $usedWords = $room->rounds()->pluck('real_word')->toArray();
+                $generated = $this->aiWordService->generateWord($usedWords, $room->language);
+            }
 
             // Assign new imposter
             $newImposter = $room->fresh()->players->random();
@@ -452,7 +706,11 @@ class GameService
                 'imposter_hint' => $generated['hint'],
             ]);
 
-            $room->update(['current_round' => $nextRoundNumber]);
+            $room->update([
+                'current_round' => $nextRoundNumber,
+                'status' => 'playing',
+                'word_pool' => array_values($pool),
+            ]);
 
             broadcast(new GameEvent($room->id, 'voting_complete', [
                 'room' => $this->formatRoom($room->fresh()),
@@ -479,6 +737,8 @@ class GameService
      */
     public function getPublicRooms(): \Illuminate\Support\Collection
     {
+        $this->cleanAllStale();
+
         return Room::where('status', 'waiting')
             ->where('type', 'public')
             ->withCount('players')
@@ -497,10 +757,12 @@ class GameService
         $room = Room::with(['players', 'rounds'])->findOrFail($roomId);
         $player = Player::findOrFail($playerId);
 
-        // Ensure player belongs to this room
         if ($player->room_id !== $roomId) {
             throw new \Exception('Player does not belong to this room.');
         }
+
+        $this->purgeStalePlayers($room);
+        $room = $room->fresh();
 
         $state = [
             'room' => $this->formatRoom($room),
@@ -604,6 +866,7 @@ class GameService
             'status' => $room->status,
             'max_players' => $room->max_players,
             'rounds_per_game' => $room->rounds_per_game,
+            'language' => $room->language,
             'current_round' => $room->current_round,
             'creator_id' => $room->creator_id,
             'players_count' => $room->players()->count(),

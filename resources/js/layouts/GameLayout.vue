@@ -1,5 +1,7 @@
 <script setup>
+import { onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { usePage } from '@inertiajs/vue3';
 
 const { t } = useI18n();
 
@@ -9,11 +11,38 @@ defineProps({
         default: '',
     },
 });
+
+const HEARTBEAT_INTERVAL = 15_000;
+
+function sendHeartbeat() {
+    const playerId = usePage().props.player?.id;
+    if (playerId) {
+        navigator.sendBeacon('/heartbeat', new URLSearchParams({ player_id: playerId }));
+    }
+}
+
+function sendLeave() {
+    const playerId = usePage().props.player?.id;
+    const roomCode = usePage().props.room?.code;
+    if (playerId && roomCode) {
+        navigator.sendBeacon('/room/' + roomCode + '/leave', new URLSearchParams({ player_id: playerId }));
+    }
+}
+
+onMounted(() => {
+    sendHeartbeat();
+    window._heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
+    window.addEventListener('beforeunload', sendLeave);
+});
+
+onUnmounted(() => {
+    clearInterval(window._heartbeatTimer);
+    window.removeEventListener('beforeunload', sendLeave);
+});
 </script>
 
 <template>
     <div class="min-h-screen bg-[#000a00] text-[#33ff66] flex flex-col">
-        <!-- Header -->
         <header class="relative px-4 pt-4 pb-2">
             <div class="flex items-center justify-between">
                 <h1
@@ -34,12 +63,8 @@ defineProps({
                     {{ roomCode }}
                 </div>
             </div>
-
-            <!-- Glitch line separator -->
             <div class="glitch-line mt-2"></div>
         </header>
-
-        <!-- Main content -->
         <main class="flex-1 px-4 py-4">
             <slot />
         </main>

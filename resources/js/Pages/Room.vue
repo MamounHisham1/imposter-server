@@ -2,9 +2,11 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
+import { useToast } from '../Composables/useToast';
 import GameLayout from '../layouts/GameLayout.vue';
 
 const { t } = useI18n();
+const { error: toastError } = useToast();
 
 const props = defineProps({
     room: Object,
@@ -19,7 +21,7 @@ const localPlayers = ref([...props.players]);
 const localRoom = ref({ ...props.room });
 
 const isCreator = computed(() => {
-    return props.player.id === props.room.creator_id;
+    return props.player.id === localRoom.value.creator_id;
 });
 
 const allReady = computed(() => {
@@ -32,7 +34,7 @@ const allReady = computed(() => {
 const readyForm = useForm({});
 
 function toggleReady() {
-    router.post('/room/' + props.room.code + '/ready', {}, {
+    router.post('/room/' + props.room.code + '/ready', { player_id: props.player.id }, {
         preserveScroll: true,
         onSuccess: (page) => {
             localPlayers.value = page.props.players || localPlayers.value;
@@ -41,25 +43,13 @@ function toggleReady() {
 }
 
 function startGame() {
-    router.post('/room/' + props.room.code + '/start', {}, {
+    router.post('/room/' + props.room.code + '/start', { player_id: props.player.id, room_id: props.room.id }, {
         preserveScroll: true,
     });
 }
 
-const settingsForm = useForm({
-    max_players: props.room.max_players,
-    rounds_per_game: props.room.rounds_per_game,
-});
-
-function updateSettings() {
-    settingsForm.put('/room/' + props.room.id + '/settings', {
-        preserveScroll: true,
-        onSuccess: (page) => {
-            if (page.props.room) {
-                localRoom.value = page.props.room;
-            }
-        },
-    });
+function leaveRoom() {
+    router.post('/room/' + props.room.code + '/leave', { player_id: props.player.id });
 }
 
 // Echo listeners
@@ -74,14 +64,24 @@ onMounted(() => {
                         }
                         if (e.room) localRoom.value = e.room;
                         break;
+                    case 'player_left':
+                        localPlayers.value = localPlayers.value.filter((p) => p.id !== e.player_id);
+                        if (e.room) localRoom.value = e.room;
+                        break;
                     case 'player_ready':
                         if (e.player) {
                             const idx = localPlayers.value.findIndex((p) => p.id === e.player.id);
                             if (idx !== -1) localPlayers.value[idx].is_ready = e.player.is_ready;
                         }
                         break;
+                    case 'creator_changed':
+                        if (e.room) localRoom.value = e.room;
+                        break;
                     case 'game_started':
                         router.visit('/game/' + props.room.code);
+                        break;
+                    case 'room_deleted':
+                        router.visit('/');
                         break;
                 }
             });
@@ -97,6 +97,7 @@ onUnmounted(() => {
 
 <template>
     <GameLayout :room-code="room.code">
+        <Toast />
         <div class="max-w-lg mx-auto space-y-6">
             <!-- Room Code Display -->
             <div class="text-center py-4">
@@ -123,7 +124,6 @@ onUnmounted(() => {
                         class="flex items-center justify-between bg-[#000a00]/60 border border-[#00ff41]/10 px-4 py-2"
                     >
                         <div class="flex items-center gap-3">
-                            <!-- Hexagonal avatar -->
                             <div
                                 class="w-8 h-8 flex items-center justify-center text-xs font-bold"
                                 :class="p.is_ready ? 'bg-[#00ff41]/20 text-[#00ff41]' : 'bg-[#00ff41]/5 text-[#00ff41]/30'"
@@ -135,13 +135,12 @@ onUnmounted(() => {
                                 {{ p.nickname }}
                             </span>
                             <span
-                                v-if="p.id === room.creator_id"
+                                v-if="p.id === localRoom.creator_id"
                                 class="text-[10px] tracking-wider text-[#00ff41]/40 border border-[#00ff41]/20 px-1"
                             >
-                                HOST
+                                {{ t('host') }}
                             </span>
                         </div>
-                        <!-- Ready status icon -->
                         <div v-if="p.is_ready" class="text-[#00ff41]">
                             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                 <polyline points="20 6 9 17 4 12" stroke-linecap="round" stroke-linejoin="round" />
@@ -155,44 +154,6 @@ onUnmounted(() => {
                             </svg>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Room Settings (creator only) -->
-            <div v-if="isCreator" class="border border-[#00ff41]/20 bg-[#001200]/50 p-4">
-                <h3 class="text-xs tracking-[0.3em] text-[#00ff41]/50 uppercase mb-3">Settings</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs text-[#00ff41]/60 mb-1">
-                            {{ t('max_players') }}: <span class="text-[#00ff41]">{{ settingsForm.max_players }}</span>
-                        </label>
-                        <input
-                            v-model.number="settingsForm.max_players"
-                            type="range"
-                            min="3"
-                            max="10"
-                            class="w-full accent-[#00ff41]"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-xs text-[#00ff41]/60 mb-1">
-                            {{ t('rounds') }}: <span class="text-[#00ff41]">{{ settingsForm.rounds_per_game }}</span>
-                        </label>
-                        <input
-                            v-model.number="settingsForm.rounds_per_game"
-                            type="range"
-                            min="1"
-                            max="10"
-                            class="w-full accent-[#00ff41]"
-                        />
-                    </div>
-                    <button
-                        @click="updateSettings"
-                        class="w-full py-2 text-sm font-bold tracking-wider border border-[#00ff41]/40 text-[#00ff41] hover:bg-[#00ff41]/10 transition-colors"
-                        style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
-                    >
-                        Save
-                    </button>
                 </div>
             </div>
 
@@ -230,7 +191,6 @@ onUnmounted(() => {
                     class="w-full py-4 font-bold text-xl tracking-[0.2em] border border-[#00ff41] bg-[#00ff41]/20 text-[#00ff41] hover:bg-[#00ff41]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     style="clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);"
                 >
-                    <!-- Play SVG -->
                     <span class="flex items-center justify-center gap-2">
                         <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="5 3 19 12 5 21 5 3" />
@@ -243,6 +203,21 @@ onUnmounted(() => {
                     {{ t('waiting_for_players') }}
                 </p>
             </div>
+
+            <!-- Leave Room -->
+            <button
+                @click="leaveRoom"
+                class="w-full py-2 text-sm tracking-wider border border-[#00ff41]/20 bg-transparent text-[#00ff41]/40 hover:text-[#00ff41] hover:border-[#00ff41]/40 transition-colors"
+                style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
+            >
+                <span class="flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5" stroke-linecap="round" />
+                        <polyline points="12 19 5 12 12 5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    {{ t('leave_room') }}
+                </span>
+            </button>
         </div>
     </GameLayout>
 </template>

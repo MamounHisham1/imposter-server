@@ -2,9 +2,11 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
+import { useToast } from '../Composables/useToast';
 import GameLayout from '../layouts/GameLayout.vue';
 
 const { t } = useI18n();
+const { error: toastError } = useToast();
 
 const props = defineProps({
     room: Object,
@@ -35,7 +37,7 @@ function submitVote() {
 
     router.post(
         '/game/' + props.room.code + '/vote',
-        { target_id: selectedPlayerId.value },
+        { target_id: selectedPlayerId.value, player_id: props.player.id },
         {
             preserveScroll: true,
         }
@@ -70,6 +72,7 @@ onUnmounted(() => {
 
 <template>
     <GameLayout :room-code="room.code">
+        <Toast />
         <div class="max-w-lg mx-auto space-y-6">
             <!-- Vote Header -->
             <div class="text-center py-4">
@@ -95,7 +98,7 @@ onUnmounted(() => {
                     class="inline-block px-4 py-1 text-xs font-bold tracking-[0.3em] border border-[#00ff41]/30 bg-[#00ff41]/5 text-[#00ff41]/60"
                     style="clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);"
                 >
-                    ROUND {{ round?.number || 1 }}
+                    {{ t('round') }} {{ round?.round_number || 1 }}
                 </div>
             </div>
 
@@ -105,7 +108,7 @@ onUnmounted(() => {
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                     </svg>
-                    Hints
+                    {{ t('hints') }}
                 </h3>
                 <div class="max-h-40 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                     <div
@@ -179,7 +182,7 @@ onUnmounted(() => {
                             <polyline points="20 6 9 17 4 12" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
 
-                        <span v-if="p.id === player.id" class="text-[10px] text-[#00ff41]/30">(You)</span>
+                        <span v-if="p.id === player.id" class="text-[10px] text-[#00ff41]/30">{{ t('you') }}</span>
                     </div>
                 </button>
             </div>
@@ -196,7 +199,7 @@ onUnmounted(() => {
                         <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" stroke-linecap="round" stroke-linejoin="round" />
                         <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    {{ hasVoted ? 'Vote Submitted' : t('submit_vote') }}
+                    {{ hasVoted ? t('vote_submitted') : t('submit_vote') }}
                 </span>
             </button>
         </div>

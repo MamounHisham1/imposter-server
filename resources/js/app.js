@@ -1,8 +1,9 @@
 import { createInertiaApp } from '@inertiajs/vue3';
-import { createSSRApp } from 'vue';
+import { createSSRApp, h } from 'vue';
 import { createI18n } from 'vue-i18n';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
+import Toast from './Components/Toast.vue';
 import '../css/app.css';
 
 import en from './i18n/en.json';
@@ -44,6 +45,14 @@ createInertiaApp({
         const app = createSSRApp(App, props);
         app.use(plugin);
         app.use(i18n);
+
+        if (props.initialPage?.props?.room?.language) {
+            i18n.global.locale.value = props.initialPage.props.room.language;
+            document.documentElement.lang = props.initialPage.props.room.language;
+            document.documentElement.dir = props.initialPage.props.room.language === 'ar' ? 'rtl' : 'ltr';
+        }
+
+        app.component('Toast', Toast);
         app.mount(el);
     },
     progress: {

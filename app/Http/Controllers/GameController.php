@@ -21,7 +21,12 @@ class GameController extends Controller
             return redirect()->route('home');
         }
 
-        $state = $this->gameService->getGameState($roomId, $playerId);
+        try {
+            $state = $this->gameService->getGameState($roomId, $playerId);
+        } catch (\Exception $e) {
+            session()->forget(['player_id', 'room_id']);
+            return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
+        }
 
         if ($state['room']['status'] === 'voting') {
             return redirect()->route('vote.show', $code);
@@ -40,8 +45,8 @@ class GameController extends Controller
 
     public function submitHint(Request $request, string $code)
     {
-        $playerId = session('player_id');
-        $roomId = session('room_id');
+        $playerId = $request->input('player_id') ?? session('player_id');
+        $roomId = $request->input('room_id') ?? session('room_id');
 
         $validated = $request->validate([
             'content' => 'required|string|max:100',
@@ -51,18 +56,63 @@ class GameController extends Controller
             return redirect()->route('home');
         }
 
-        $state = $this->gameService->getGameState($roomId, $playerId);
+        try {
+            $state = $this->gameService->getGameState($roomId, $playerId);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
         $roundId = $state['current_round']['id'] ?? null;
 
         if (!$roundId) {
-            return back()->withErrors('No active round');
+            return back()->withErrors(['error' => 'No active round']);
         }
 
-        $this->gameService->submitHint(
-            $roundId,
-            $playerId,
-            $validated['content']
-        );
+        try {
+            $this->gameService->submitHint(
+                $roundId,
+                $playerId,
+                $validated['content']
+            );
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return back();
+    }
+
+    public function nextRound(Request $request, string $code)
+    {
+        $playerId = $request->input('player_id') ?? session('player_id');
+        $roomId = $request->input('room_id') ?? session('room_id');
+
+        if (!$playerId || !$roomId) {
+            return redirect()->route('home');
+        }
+
+        try {
+            $this->gameService->advanceRound($roomId, $playerId);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return back();
+    }
+
+    public function startVoting(Request $request, string $code)
+    {
+        $playerId = $request->input('player_id') ?? session('player_id');
+        $roomId = $request->input('room_id') ?? session('room_id');
+
+        if (!$playerId || !$roomId) {
+            return redirect()->route('home');
+        }
+
+        try {
+            $this->gameService->startVoting($roomId, $playerId);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
 
         return back();
     }
@@ -76,7 +126,12 @@ class GameController extends Controller
             return redirect()->route('home');
         }
 
-        $state = $this->gameService->getGameState($roomId, $playerId);
+        try {
+            $state = $this->gameService->getGameState($roomId, $playerId);
+        } catch (\Exception $e) {
+            session()->forget(['player_id', 'room_id']);
+            return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
+        }
 
         if ($state['room']['status'] === 'finished') {
             return redirect()->route('result.show', $code);
@@ -91,8 +146,8 @@ class GameController extends Controller
 
     public function submitVote(Request $request, string $code)
     {
-        $playerId = session('player_id');
-        $roomId = session('room_id');
+        $playerId = $request->input('player_id') ?? session('player_id');
+        $roomId = $request->input('room_id') ?? session('room_id');
 
         $validated = $request->validate([
             'target_id' => 'required|integer|exists:players,id',
@@ -102,15 +157,23 @@ class GameController extends Controller
             return redirect()->route('home');
         }
 
-        // Get the current round
-        $state = $this->gameService->getGameState($roomId, $playerId);
+        try {
+            $state = $this->gameService->getGameState($roomId, $playerId);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
         $roundId = $state['current_round']['id'] ?? null;
 
         if (!$roundId) {
-            return back()->withErrors('No active round');
+            return back()->withErrors(['error' => 'No active round']);
         }
 
-        $this->gameService->submitVote($roundId, $playerId, $validated['target_id']);
+        try {
+            $this->gameService->submitVote($roundId, $playerId, $validated['target_id']);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
 
         return back();
     }
@@ -124,7 +187,12 @@ class GameController extends Controller
             return redirect()->route('home');
         }
 
-        $state = $this->gameService->getGameState($roomId, $playerId);
+        try {
+            $state = $this->gameService->getGameState($roomId, $playerId);
+        } catch (\Exception $e) {
+            session()->forget(['player_id', 'room_id']);
+            return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
+        }
 
         return Inertia::render('Result', $state);
     }
