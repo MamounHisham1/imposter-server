@@ -359,25 +359,20 @@ class GameService
 
             $generated = array_shift($pool);
 
-            // Assign imposter randomly (exclude previous round's imposter if any)
-            $previousImposterId = $room->rounds()->latest('id')->value('imposter_id');
-            $eligible = $previousImposterId
-                ? $players->reject(fn ($p) => $p->id == $previousImposterId)
-                : $players;
-            if ($eligible->isEmpty()) {
-                $eligible = $players;
-            }
-            $imposter = $eligible->random();
+            // Assign imposter randomly
+            $imposter = $players->random();
             $imposter->update(['is_imposter' => true]);
 
-            // Create the first round
+            // Create the first round with a random hint order
             $roundNumber = 1;
+            $hintOrder = $players->shuffle()->pluck('id')->toArray();
             $round = Round::create([
                 'room_id' => $room->id,
                 'round_number' => $roundNumber,
                 'real_word' => $generated['word'],
                 'imposter_hint' => $generated['hint'],
                 'imposter_id' => $imposter->id,
+                'hint_order' => $hintOrder,
             ]);
 
             $room->update([
@@ -426,6 +421,18 @@ class GameService
             throw new \Exception('Hint already submitted for this round.');
         }
 
+        // Enforce turn order: only the current player in sequence can submit
+        $hintOrder = $round->hint_order ?? [];
+        $submittedCount = $round->hints()->count();
+
+        if (! empty($hintOrder) && isset($hintOrder[$submittedCount])) {
+            $expectedPlayerId = $hintOrder[$submittedCount];
+            if ($playerId != $expectedPlayerId) {
+                $expectedPlayer = Player::find($expectedPlayerId);
+                throw new \Exception('Not your turn. Waiting for ' . ($expectedPlayer->nickname ?? 'another player') . '.');
+            }
+        }
+
         Hint::create([
             'round_id' => $roundId,
             'player_id' => $playerId,
@@ -434,7 +441,15 @@ class GameService
 
         $room->touchActivity();
         $player = Player::find($playerId);
+        $round->refresh();
         $allHintsSubmitted = $round->hints()->count() >= $room->players()->count();
+
+        // Determine the next player in turn order
+        $nextPlayerId = null;
+        if (! $allHintsSubmitted && ! empty($hintOrder)) {
+            $nextIdx = $round->hints()->count();
+            $nextPlayerId = $hintOrder[$nextIdx] ?? null;
+        }
 
         if ($allHintsSubmitted) {
             broadcast(new GameEvent($room->id, 'hints_complete', [
@@ -448,20 +463,24 @@ class GameService
                 'room' => $this->formatRoom($room->fresh()),
                 'player_id' => $playerId,
                 'nickname' => $player->nickname,
+                'hints' => $this->formatHints($round->fresh()->hints),
                 'hints_count' => $round->hints()->count(),
                 'total_players' => $room->players()->count(),
+                'next_player_id' => $nextPlayerId,
+                'hint_order' => $hintOrder,
             ]));
         }
 
         return [
             'all_hints_submitted' => $allHintsSubmitted,
             'hints_count' => $round->hints()->count(),
+            'next_player_id' => $nextPlayerId,
         ];
     }
 
     public function advanceRound(int $roomId, int $creatorId): array
     {
-        $room = Room::findOrFail($roomId);
+        $room = Room::with('players')->findOrFail($roomId);
 
         if ($room->creator_id !== $creatorId) {
             throw new \Exception('Only the room creator can advance rounds.');
@@ -479,11 +498,21 @@ class GameService
 
         $nextRoundNumber = $round->round_number + 1;
 
+        // Reassign imposter randomly
+        $room->players()->update(['is_imposter' => false]);
+        $newImposter = $room->fresh()->players->random();
+        $newImposter->update(['is_imposter' => true]);
+
+        // New shuffled hint order for the continued round
+        $hintOrder = $room->fresh()->players->shuffle()->pluck('id')->toArray();
+
         $nextRound = Round::create([
             'room_id' => $room->id,
             'round_number' => $nextRoundNumber,
             'real_word' => $round->real_word,
             'imposter_hint' => $round->imposter_hint,
+            'imposter_id' => $newImposter->id,
+            'hint_order' => $hintOrder,
         ]);
 
         $room->update(['current_round' => $nextRoundNumber]);
@@ -745,16 +774,11 @@ class GameService
                 $generated = $this->aiWordService->generateWord($usedWords, $room->language);
             }
 
-            // Assign new imposter (exclude previous round's imposter)
-            $previousImposterId = $previousRound->imposter_id;
-            $eligible = $previousImposterId
-                ? $room->fresh()->players->reject(fn ($p) => $p->id == $previousImposterId)
-                : $room->fresh()->players;
-            if ($eligible->isEmpty()) {
-                $eligible = $room->fresh()->players;
-            }
-            $newImposter = $eligible->random();
+            // Assign new imposter randomly
+            $newImposter = $room->fresh()->players->random();
             $newImposter->update(['is_imposter' => true]);
+
+            $hintOrder = $room->fresh()->players->shuffle()->pluck('id')->toArray();
 
             $nextRound = Round::create([
                 'room_id' => $room->id,
@@ -762,6 +786,7 @@ class GameService
                 'real_word' => $generated['word'],
                 'imposter_hint' => $generated['hint'],
                 'imposter_id' => $newImposter->id,
+                'hint_order' => $hintOrder,
             ]);
 
             $room->update([
@@ -844,19 +869,34 @@ class GameService
                     $state['hint_for_imposter'] = null;
                 }
 
-                // Get hints (only show content if all submitted, otherwise just show who submitted)
+                // Get hints — during hint phase, show each hint as it's submitted in order
                 $hints = $currentRound->hints;
                 $allHintsSubmitted = $hints->count() >= $room->players()->count();
 
-                if ($allHintsSubmitted) {
-                    $state['hints'] = $this->formatHints($hints);
-                } else {
-                    // Only reveal who submitted, not the content
-                    $state['hints'] = $hints->map(fn ($hint) => [
-                        'player_id' => $hint->player_id,
-                        'submitted' => true,
-                    ])->toArray();
+                // Show hints in the hint_order sequence, with content visible
+                $hintOrder = $currentRound->hint_order ?? [];
+                $submittedHints = $hints->keyBy('player_id');
+                $orderedHints = [];
+                foreach ($hintOrder as $pid) {
+                    if (isset($submittedHints[$pid])) {
+                        $hint = $submittedHints[$pid];
+                        $orderedHints[] = [
+                            'id' => $hint->id,
+                            'player_id' => $hint->player_id,
+                            'player_nickname' => $hint->player?->nickname,
+                            'content' => $hint->content,
+                        ];
+                    }
                 }
+                $state['hints'] = $orderedHints;
+
+                // Add hint order and current turn info
+                $state['hint_order'] = $hintOrder;
+                $submittedCount = $hints->count();
+                $state['current_turn_player_id'] = $allHintsSubmitted
+                    ? null
+                    : ($hintOrder[$submittedCount] ?? null);
+                $state['hints_complete'] = $allHintsSubmitted;
 
                 // Get votes (only reveal after all votes are in)
                 $votes = $currentRound->votes;
@@ -975,6 +1015,7 @@ class GameService
             'id' => $round->id,
             'room_id' => $round->room_id,
             'round_number' => $round->round_number,
+            'hint_order' => $round->hint_order,
             'created_at' => $round->created_at?->toISOString(),
         ];
     }

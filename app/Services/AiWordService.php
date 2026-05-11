@@ -336,47 +336,54 @@ class AiWordService
         [$languageName, $examples, $extraRule, $categoryLine] = match ($language) {
             'ar' => [
                 'Arabic (Modern Standard Arabic)',
-                "- مثال جيد: word=\"منارة\"، hint=\"عزلة\" — العزلة شعور مرتبط بالمنارة لكنه غامض يصلح لأشياء كثيرة\n- مثال جيد: word=\"طبيب\"، hint=\"ثقة\" — الثقة مرتبطة بالطبيب لكنها مفهوم عام\n- مثال سيء: word=\"بيتزا\"، hint=\"جبنة\" — مباشر جداً\n- مثال سيء: word=\"محيط\"، hint=\"أمواج\" — مباشر جداً",
+                "- جيد: word=\"مظلة\"، hint=\"مطر\" — مطر ممكن يكون مع: معطف، سحاب، نافذة، حذاء\n- جيد: word=\"سكين\"، hint=\"مطبخ\" — مطبخ ممكن يكون مع: فرن، ثلاجة، طباخ\n- جيد: word=\"حصان\"، hint=\"مزرعة\" — مزرعة ممكن تكون مع: بقرة، جرار، حظيرة\n- جيد: word=\"ساعة\"، hint=\"وقت\" — وقت ممكن يكون مع: تقويم، ساعة يد\n- سيء: word=\"بيتزا\"، hint=\"جبنة\" — جزء من البيتزا، مباشر جداً\n- سيء: word=\"مظلة\"، hint=\"خفة\" — كلمة خفة ما تخلي أحد يفكر بالمظلة\n- سيء: word=\"تلسكوب\"، hint=\"نجوم\" — جزء من التلسكوب، مباشر",
                 "- اكتب الكلمة والتلميح باللغة العربية فقط. لا تستخدم أي حروف لاتينية إطلاقاً.",
                 "- يجب أن تكون \"الكلمة\" من هذه الفئة: {$category}",
             ],
             default => [
                 'English',
-                "- GOOD example: word=\"Lighthouse\", hint=\"Solitude\" — solitude evokes a lighthouse but is abstract enough to fit many things\n- GOOD example: word=\"Dentist\", hint=\"Routine\" — routine fits a dentist visit but is broad\n- GOOD example: word=\"Volcano\", hint=\"Pressure\" — abstract concept, not a direct physical clue\n- BAD example: word=\"Pizza\", hint=\"Cheese\" — way too obvious, gives the answer away\n- BAD example: word=\"Ocean\", hint=\"Waves\" — way too direct",
+                "- GOOD: word=\"Umbrella\", hint=\"Rain\" — rain also fits: raincoat, clouds, window, boots\n- GOOD: word=\"Knife\", hint=\"Kitchen\" — kitchen also fits: stove, fridge, chef, recipe\n- GOOD: word=\"Horse\", hint=\"Farm\" — farm also fits: cow, tractor, barn, chicken\n- GOOD: word=\"Clock\", hint=\"Time\" — time also fits: calendar, watch, hourglass\n- BAD: word=\"Pizza\", hint=\"Cheese\" — ingredient, too obvious\n- BAD: word=\"Umbrella\", hint=\"Lightness\" — useless abstract hint\n- BAD: word=\"Telescope\", hint=\"Stars\" — too direct",
                 '',
                 "- The \"word\" must be from this category: {$category}",
             ],
         };
 
         $prompt = <<<PROMPT
-Generate a creative, interesting word and an oblique "hint" for a social deduction game called Imposter.
+You are generating a word and hint for the social deduction game "Imposter".
 
-Respond with a JSON object containing EXACTLY two keys: "word" and "hint". Use those exact key names.
+HOW THE GAME WORKS:
+- All players get the SAME word EXCEPT one player (the imposter) who gets only the hint.
+- Players take turns saying ONE word related to their word. The imposter must blend in without knowing the real word.
+- The hint is given to the imposter as their ONLY clue. It must be useful enough that the imposter can participate, but not so specific that they can guess the word.
+
+RULES FOR THE HINT:
+- The hint must be a STRONG association — something most people would think of when they hear the word
+- BUT it must also be AMBIGUOUS enough that 2-3 other common words could match it
+- The hint must NOT be a physical part/ingredient (e.g. NOT "wax" for candle, NOT "cheese" for pizza)
+- The hint must NOT be an abstract quality (e.g. NOT "lightness" for umbrella, NOT "pressure" for volcano)
+- The hint SHOULD be: a related place, activity, context, or strong association
+- Sweet spot examples:
+  - umbrella → rain (but rain also fits raincoat, clouds, window, boots)
+  - knife → kitchen (but kitchen also fits stove, fridge, chef, recipe)
+  - guitar → concert (but concert also fits singer, drums, stage, ticket)
+  - clock → time (but time also fits calendar, watch, hourglass)
 
 WORD requirements:
-- Must be a single, recognizable noun that everyone knows (no obscure jargon)
-- Be CREATIVE and SPECIFIC — avoid the most generic nouns like "pizza", "car", "house", "dog", "ocean", "tree"
-- Prefer concrete, evocative things (e.g. lighthouse, astronaut, parachute, dentist, vinyl, telescope, glacier)
+- A single, recognizable noun everyone knows
+- Avoid the most overused words (pizza, car, house, dog, ocean, tree)
+- Prefer specific, evocative nouns (lighthouse, astronaut, telescope, compass, parachute, archaeologist)
 {$categoryLine}
-
-HINT requirements:
-- A single word that is RELATED to the real word but NOT a direct physical part, ingredient, or synonym
-- Prefer ABSTRACT concepts: a feeling, a quality, an action, a setting, a purpose, an atmosphere
-- The hint should be vague enough that an imposter who doesn't know the real word could plausibly say a similar word and blend in
-- The hint must NOT be a defining feature, ingredient, or location of the word
-- NEVER use words like "wheels" for car, "cheese" for pizza, "pages" for book — those give it away
 
 Examples:
 {$examples}
 
-Final rules:
-- Both values must be a single word
-- Both the "word" and the "hint" MUST be written in {$languageName}.
+Respond with a JSON object: { "word": "...", "hint": "..." }
+Both must be a single word in {$languageName}.
 {$extraRule}
 PROMPT;
 
         if (! empty($avoidList)) {
-            $prompt .= "\n\nDo NOT use any of these words (already used in previous rounds): {$avoidList}";
+            $prompt .= "\n\nDo NOT use any of these words (already used): {$avoidList}";
         }
 
         return $prompt;
@@ -390,57 +397,62 @@ PROMPT;
         [$languageName, $examples, $extraRule, $bannedExamples] = match ($language) {
             'ar' => [
                 'Arabic (Modern Standard Arabic)',
-                "- مثال جيد: word=\"منارة\"، hint=\"عزلة\"\n- مثال جيد: word=\"طبيب\"، hint=\"ثقة\"\n- مثال جيد: word=\"بركان\"، hint=\"ضغط\"\n- مثال سيء: word=\"بيتزا\"، hint=\"جبنة\" (مباشر جداً)\n- مثال سيء: word=\"محيط\"، hint=\"أمواج\" (مباشر جداً)",
+                "- جيد: word=\"مظلة\"، hint=\"مطر\" — قوي ومفيد، لكن مطر ممكن يكون مع: معطف، سحاب، نافذة، حذاء\n- جيد: word=\"سكين\"، hint=\"مطبخ\" — قوي ومفيد، لكن مطبخ ممكن يكون مع: فرن، ثلاجة، طباخ\n- جيد: word=\"حصان\"، hint=\"مزرعة\" — قوي ومفيد، لكن مزرعة ممكن تكون مع: بقرة، جرار، حظيرة\n- جيد: word=\"ساعة\"، hint=\"وقت\" — قوي ومفيد، لكن وقت ممكن يكون مع: تقويم، ساعة يد، رمل\n- سيء: word=\"بيتزا\"، hint=\"جبنة\" — جزء من البيتزا، مباشر جداً\n- سيء: word=\"مظلة\"، hint=\"خفة\" — كلمة خفة ما تخلي أحد يفكر بالمظلة\n- سيء: word=\"تلسكوب\"، hint=\"نجوم\" — جزء من التلسكوب، مباشر",
                 "- اكتب جميع الكلمات والتلميحات باللغة العربية فقط. لا تستخدم أي حروف لاتينية إطلاقاً.",
-                'منارة، طبيب، بركان، بيتزا، محيط',
+                'مظلة، سكين، حصان، ساعة، بيتزا، تلسكوب، منارة، بوصلة، مفتاح، شمعة، جيتار، قارب، فأس، طبال',
             ],
             default => [
                 'English',
-                "- GOOD: word=\"Lighthouse\", hint=\"Solitude\"\n- GOOD: word=\"Dentist\", hint=\"Routine\"\n- GOOD: word=\"Volcano\", hint=\"Pressure\"\n- GOOD: word=\"Astronaut\", hint=\"Distance\"\n- BAD: word=\"Pizza\", hint=\"Cheese\" (way too obvious)\n- BAD: word=\"Ocean\", hint=\"Waves\" (way too direct)",
+                "- GOOD: word=\"Umbrella\", hint=\"Rain\" — strong, but rain also fits: raincoat, clouds, window, boots\n- GOOD: word=\"Knife\", hint=\"Kitchen\" — strong, but kitchen also fits: stove, fridge, chef, recipe\n- GOOD: word=\"Horse\", hint=\"Farm\" — strong, but farm also fits: cow, tractor, barn, chicken\n- GOOD: word=\"Clock\", hint=\"Time\" — strong, but time also fits: calendar, watch, hourglass\n- GOOD: word=\"Crown\", hint=\"King\" — strong, but king also fits: castle, throne, kingdom\n- BAD: word=\"Pizza\", hint=\"Cheese\" — ingredient, too obvious\n- BAD: word=\"Umbrella\", hint=\"Lightness\" — useless abstract hint\n- BAD: word=\"Telescope\", hint=\"Stars\" — too direct, stars is what you look at",
                 '',
-                'Lighthouse, Dentist, Volcano, Astronaut, Pizza, Ocean',
+                'Umbrella, Knife, Horse, Clock, Crown, Pizza, Telescope, Lighthouse, Compass, Guitar, Astronaut, Parachute, Violin, Candle, Drum, Lantern, Mirror, Bridge, Key',
             ],
         };
 
         $prompt = <<<PROMPT
-Generate EXACTLY {$count} distinct word/hint pairs for a social deduction game called Imposter.
+Generate EXACTLY {$count} distinct word/hint pairs for the social deduction game "Imposter".
 
-Respond with a JSON object containing a single key "rounds" whose value is an array of EXACTLY {$count} objects. Each object MUST have exactly two keys: "word" and "hint". Use those exact key names.
+HOW THE GAME WORKS:
+- All players get the SAME word EXCEPT the imposter, who gets only the hint.
+- Players take turns saying ONE word related to their word. The imposter must blend in.
+- The hint is the imposter's ONLY clue about the real word.
 
-Schema:
-{
-  "rounds": [
-    { "word": "...", "hint": "..." },
-    ... ({$count} entries total)
-  ]
-}
+Respond with JSON: { "rounds": [ { "word": "...", "hint": "..." }, ... ] }
+Exactly {$count} entries. Keys must be "word" and "hint".
 
-WORD requirements (apply to every entry):
-- Must be a single, recognizable noun that everyone knows (no obscure jargon)
-- Be CREATIVE and SPECIFIC — avoid the most generic nouns like "pizza", "car", "house", "dog", "ocean", "tree"
-- Prefer concrete, evocative things (e.g. lighthouse, astronaut, parachute, dentist, vinyl, telescope, glacier, submarine, compass)
-- Spread across DIFFERENT categories (profession, tool, place, vehicle, hobby, instrument, landmark, animal, technology, food, natural phenomenon)
-- Every word must be DISTINCT from every other word in the list
+WORD requirements:
+- Single, recognizable noun everyone knows
+- DO NOT use any of these overused words: pizza, car, house, dog, ocean, tree, sun, moon, cat, fish, book, phone, chair, table, door, water, fire, bed, shoe, hat, ball, ring, key, knife, candle, clock, mirror, bridge, crown, horse, umbrella, guitar, drum, violin, compass, telescope, lighthouse, parachute, astronaut, volcano, submarine, penguin, butterfly, rainbow, snowman
+- Prefer specific, evocative nouns (lighthouse, astronaut, telescope, compass, parachute)
+- Spread across different categories: profession, tool, place, vehicle, hobby, instrument, landmark, animal, technology, food, natural phenomenon
+- Every word must be DISTINCT
 
-HINT requirements (apply to every entry):
-- A single word RELATED to the real word but NOT a direct physical part, ingredient, or synonym
-- Prefer ABSTRACT concepts: a feeling, a quality, an action, a setting, a purpose, an atmosphere
-- Vague enough that an imposter who doesn't know the real word could plausibly bluff a similar word
-- NEVER use defining features (e.g. "wheels" for car, "cheese" for pizza, "pages" for book)
+HINT requirements (THIS IS CRITICAL — READ CAREFULLY):
+- The hint must be a STRONG association with the word — something most people would think of
+- BUT it must also be ambiguous enough that 2-3 other common words could match it
+- The hint must NOT be a physical part/ingredient (e.g. NOT "wax" for candle, NOT "cheese" for pizza, NOT "mane" for horse)
+- The hint must NOT be an abstract quality (e.g. NOT "lightness" for umbrella, NOT "pressure" for volcano, NOT "solitude" for lighthouse)
+- The hint SHOULD be: a related place, activity, context, or strong association
+- PERFECT examples of the sweet spot:
+  - umbrella → rain (strong association, but "rain" also fits: raincoat, window, clouds, boots)
+  - knife → kitchen (strong association, but "kitchen" also fits: stove, recipe, chef, fridge)
+  - guitar → concert (strong association, but "concert" also fits: singer, drums, stage, ticket)
+  - clock → time (strong association, but "time" also fits: calendar, hourglass, watch, stopwatch)
+  - horse → farm (strong association, but "farm" also fits: cow, tractor, barn, chicken)
 
-Examples (style guide):
+Examples:
 {$examples}
 
 Final rules:
-- Each "word" and each "hint" must be a single word
-- Every value MUST be written in {$languageName}.
+- Each word and hint must be a SINGLE word
+- All values in {$languageName}.
 {$extraRule}
-- Return EXACTLY {$count} entries — not more, not fewer
-- The example words above are illustrations ONLY. Do NOT include any of them in your output. Forbidden: {$bannedExamples}
+- Return EXACTLY {$count} entries
+- Do NOT reuse any example words. Forbidden: {$bannedExamples}
 PROMPT;
 
         if (! empty($avoidList)) {
-            $prompt .= "\n\nAlso do NOT use any of these words (already used in previous games): {$avoidList}";
+            $prompt .= "\n\nAlso avoid these words (used in previous games): {$avoidList}";
         }
 
         return $prompt;

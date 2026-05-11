@@ -48,5 +48,6 @@
   "the_word": "THE WORD",
   "imposter_hint": "IMPOSTER HINT",
   "vote_tally": "VOTE TALLY",
-  "tie": "TIE"
+  "tie": "TIE",
+  "is_typing_hint": "is typing a hint..."
 }
