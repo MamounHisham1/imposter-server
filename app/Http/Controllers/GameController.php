@@ -1,0 +1,131 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\GameService;
+use Inertia\Inertia;
+use Illuminate\Http\Request;
+
+class GameController extends Controller
+{
+    public function __construct(
+        private GameService $gameService
+    ) {}
+
+    public function show(string $code)
+    {
+        $roomId = session('room_id');
+        $playerId = session('player_id');
+
+        if (!$roomId || !$playerId) {
+            return redirect()->route('home');
+        }
+
+        $state = $this->gameService->getGameState($roomId, $playerId);
+
+        if ($state['room']['status'] === 'voting') {
+            return redirect()->route('vote.show', $code);
+        }
+
+        if ($state['room']['status'] === 'finished') {
+            return redirect()->route('result.show', $code);
+        }
+
+        if ($state['room']['status'] !== 'playing') {
+            return redirect()->route('room.show', $code);
+        }
+
+        return Inertia::render('Game', $state);
+    }
+
+    public function submitHint(Request $request, string $code)
+    {
+        $playerId = session('player_id');
+        $roomId = session('room_id');
+
+        $validated = $request->validate([
+            'content' => 'required|string|max:100',
+        ]);
+
+        if (!$playerId || !$roomId) {
+            return redirect()->route('home');
+        }
+
+        $state = $this->gameService->getGameState($roomId, $playerId);
+        $roundId = $state['current_round']['id'] ?? null;
+
+        if (!$roundId) {
+            return back()->withErrors('No active round');
+        }
+
+        $this->gameService->submitHint(
+            $roundId,
+            $playerId,
+            $validated['content']
+        );
+
+        return back();
+    }
+
+    public function vote(string $code)
+    {
+        $roomId = session('room_id');
+        $playerId = session('player_id');
+
+        if (!$roomId || !$playerId) {
+            return redirect()->route('home');
+        }
+
+        $state = $this->gameService->getGameState($roomId, $playerId);
+
+        if ($state['room']['status'] === 'finished') {
+            return redirect()->route('result.show', $code);
+        }
+
+        if ($state['room']['status'] !== 'voting') {
+            return redirect()->route('game.show', $code);
+        }
+
+        return Inertia::render('Vote', $state);
+    }
+
+    public function submitVote(Request $request, string $code)
+    {
+        $playerId = session('player_id');
+        $roomId = session('room_id');
+
+        $validated = $request->validate([
+            'target_id' => 'required|integer|exists:players,id',
+        ]);
+
+        if (!$playerId || !$roomId) {
+            return redirect()->route('home');
+        }
+
+        // Get the current round
+        $state = $this->gameService->getGameState($roomId, $playerId);
+        $roundId = $state['current_round']['id'] ?? null;
+
+        if (!$roundId) {
+            return back()->withErrors('No active round');
+        }
+
+        $this->gameService->submitVote($roundId, $playerId, $validated['target_id']);
+
+        return back();
+    }
+
+    public function result(string $code)
+    {
+        $roomId = session('room_id');
+        $playerId = session('player_id');
+
+        if (!$roomId || !$playerId) {
+            return redirect()->route('home');
+        }
+
+        $state = $this->gameService->getGameState($roomId, $playerId);
+
+        return Inertia::render('Result', $state);
+    }
+}
