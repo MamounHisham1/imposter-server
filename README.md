@@ -1,58 +1,194 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Imposter
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A real-time multiplayer social deduction word game built with Laravel 13, Vue 3, and WebSocket broadcasting.
 
-## About Laravel
+One player is secretly the **Imposter**. The rest of the crew sees a secret word — the imposter only sees a vague, misleading hint. Everyone submits a one-word clue, then the crew votes to catch the imposter. Can you blend in, or will you be exposed?
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## How It Works
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+1. **Create or join a room** — share the 6-character code with friends
+2. **Crew sees the word** (e.g. "Lighthouse") — the imposter sees a vague hint (e.g. "Solitude")
+3. **Submit one-word hints** — crew describes the word subtly, the imposter tries to fake it
+4. **Vote to catch the imposter** — majority rules, but ties let the imposter slip away
+5. **Score points** across multiple rounds — crew gets points for catching the imposter, the imposter scores for surviving
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Scoring
 
-## Learning Laravel
+| Outcome | Crew Points | Imposter Points |
+|---------|-------------|-----------------|
+| Imposter caught (majority vote) | 2 pts (voters), 1 pt (others) | 0 |
+| Wrong player accused | 0 | 3 |
+| Tie vote | 0 | 1 |
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Features
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- **Real-time multiplayer** via Laravel Reverb (WebSocket)
+- **AI-powered word generation** — creative word/hint pairs generated on the fly (supports OpenAI, Anthropic, Gemini, Groq, Ollama, and more)
+- **Hardcoded fallback** — 50+ word/hint pairs when AI is unavailable
+- **Multi-round games** — configurable 1–5 rounds per game
+- **Room management** — public/private rooms, 3–8 players, unique room codes
+- **Player heartbeat system** — auto-removes disconnected players after 60 seconds
+- **Bilingual** — English and Arabic (RTL) with AI-aware language prompts
+- **No account required** — jump in with a nickname, no registration needed
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Tech Stack
 
-## Agentic Development
+| Layer | Technology |
+|-------|-----------|
+| Backend | Laravel 13, PHP 8.3+ |
+| Frontend | Vue 3, Inertia.js v3, Tailwind CSS v4 |
+| Real-time | Laravel Reverb, Laravel Echo, Pusher.js |
+| AI | `laravel/ai` (multi-provider) |
+| Database | SQLite (default) — also supports MySQL, PostgreSQL, SQL Server |
+| Queue/Cache/Session | Database driver |
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Getting Started
+
+### Prerequisites
+
+- PHP 8.3+
+- Composer
+- Node.js & npm
+- An AI provider (optional but recommended — Ollama works locally)
+
+### Installation
 
 ```bash
-composer require laravel/boost --dev
+git clone https://github.com/MamounHisham1/imposter-server.git
+cd imposter-server
 
-php artisan boost:install
+# Install dependencies
+composer install
+npm install
+
+# Environment setup
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+
+# Build frontend
+npm run build
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### AI Configuration (Optional)
 
-## Contributing
+The game works without AI using hardcoded word pairs. To enable AI word generation, configure a provider in `.env`:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```env
+# Example: Ollama (local, free)
+AI_DEFAULT=ollama
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=minimax-m2.5:cloud
 
-## Code of Conduct
+# Example: OpenAI
+AI_DEFAULT=openai
+OPENAI_API_KEY=your-key-here
+OPENAI_MODEL=gpt-4o
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# Example: Anthropic
+AI_DEFAULT=anthropic
+ANTHROPIC_API_KEY=your-key-here
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
+```
 
-## Security Vulnerabilities
+Supported providers: OpenAI, Anthropic, Gemini, Groq, DeepSeek, Mistral, Ollama, OpenRouter, xAI, Cohere, Azure, Bedrock, and more.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Running
+
+```bash
+# Run everything (PHP server, queue worker, scheduler, Reverb, Vite)
+composer dev
+```
+
+Or run services individually:
+
+```bash
+php artisan serve                    # Laravel dev server
+php artisan reverb:start             # WebSocket server
+php artisan queue:table && php artisan migrate  # (first time only)
+php artisan queue:work               # Queue worker
+php artisan schedule:work            # Scheduled tasks (cleanup)
+npm run dev                          # Vite dev server
+```
+
+Open `http://localhost:8000` in your browser.
+
+## Project Structure
+
+```
+├── app/
+│   ├── Console/Commands/
+│   │   └── CleanInactiveRooms.php    # Scheduled cleanup (runs every minute)
+│   ├── Events/
+│   │   ├── GameEvent.php             # Per-room real-time events
+│   │   └── RoomListEvent.php         # Public room list updates
+│   ├── Http/Controllers/
+│   │   ├── GameController.php        # Game flow: hints, voting, results
+│   │   └── RoomController.php        # Room CRUD, join, ready, leave
+│   ├── Models/
+│   │   ├── GameStat.php              # Player statistics (planned)
+│   │   ├── Hint.php                  # Player hints per round
+│   │   ├── Player.php                # Room players
+│   │   ├── Room.php                  # Game rooms
+│   │   ├── Round.php                 # Game rounds
+│   │   └── Vote.php                  # Player votes per round
+│   └── Services/
+│       ├── AiWordService.php         # AI word/hint generation with fallback
+│       └── GameService.php           # Core game logic (state, scoring, broadcasting)
+├── database/migrations/              # 17 migrations (rooms, players, rounds, hints, votes, etc.)
+├── resources/
+│   └── js/
+│       ├── Pages/                    # Vue pages (Home, Room, Game, Vote, Result)
+│       ├── Components/               # Shared components (Toast)
+│       ├── Composables/              # Vue composables (useToast)
+│       └── i18n/                     # Translation files (en.json, ar.json)
+└── routes/
+    ├── web.php                       # All web routes
+    └── console.php                   # Scheduled commands
+```
+
+## Game Flow
+
+```
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  Lobby   │───>│  Hints   │───>│  Voting  │───>│  Result  │───>│  Hints   │
+│(waiting) │    │(playing) │    │(voting)  │    │(result)  │    │(round 2) │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
+     │               │               │               │               │
+  Create room    AI picks word     Each player    Tally votes     New word,
+  Join by code   Assign imposter   votes once      Award points    new imposter
+  Ready up       Submit hints                      Show answer     (repeat)
+```
+
+## WebSocket Events
+
+| Event | Channel | Trigger |
+|-------|---------|---------|
+| `room_created` | `public-rooms` | New public room created |
+| `player_joined` | `room.{id}` | Player joins a room |
+| `player_ready` | `room.{id}` | Player toggles ready |
+| `game_started` | `room.{id}` | Game begins |
+| `hint_submitted` | `room.{id}` | Hint submitted (count update) |
+| `hints_complete` | `room.{id}` | All hints in — reveal to all |
+| `voting_started` | `room.{id}` | Voting phase begins |
+| `vote_submitted` | `room.{id}` | Vote cast (count update) |
+| `round_result` | `room.{id}` | Round resolved — winner announced |
+| `next_round` | `room.{id}` | Next round begins |
+| `game_over` | `room.{id}` | All rounds complete |
+| `player_left` | `room.{id}` | Player disconnected/removed |
+| `room_deleted` | `room.{id}` | Room cleaned up |
+
+## Cleanup & Maintenance
+
+A scheduled command runs every minute to keep things tidy:
+
+- **Stale players** removed after 60 seconds of no heartbeat
+- **Empty rooms** deleted immediately
+- **Inactive rooms** cleaned up based on status:
+  - `waiting` rooms: after 30 minutes
+  - `finished` games: after 10 minutes
+  - `playing`/`voting` games: after 60 minutes
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The MIT License (MIT). See [LICENSE](LICENSE) for details.

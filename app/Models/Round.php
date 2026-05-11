@@ -11,10 +11,16 @@ class Round extends Model
         'round_number',
         'real_word',
         'imposter_hint',
+        'imposter_id',
+        'winner',
+        'imposter_caught',
+        'vote_tally',
     ];
 
     protected $casts = [
         'round_number' => 'integer',
+        'imposter_caught' => 'boolean',
+        'vote_tally' => 'array',
     ];
 
     public function room()

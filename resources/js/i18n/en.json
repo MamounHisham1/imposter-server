@@ -43,5 +43,10 @@
   "host": "HOST",
   "language": "Language",
   "english": "English",
-  "arabic": "العربية"
+  "arabic": "العربية",
+  "next_round": "NEXT ROUND",
+  "the_word": "THE WORD",
+  "imposter_hint": "IMPOSTER HINT",
+  "vote_tally": "VOTE TALLY",
+  "tie": "TIE"
 }

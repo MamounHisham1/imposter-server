@@ -55,8 +55,8 @@ onMounted(() => {
                     case 'game_over':
                         router.visit('/game/' + props.room.code + '/result');
                         break;
-                    case 'voting_complete':
-                        router.visit('/game/' + props.room.code);
+                    case 'round_result':
+                        router.visit('/game/' + props.room.code + '/result');
                         break;
                 }
             });

@@ -43,5 +43,10 @@
   "host": "المضيف",
   "language": "اللغة",
   "english": "English",
-  "arabic": "العربية"
+  "arabic": "العربية",
+  "next_round": "الجولة التالية",
+  "the_word": "الكلمة",
+  "imposter_hint": "تلميح المحتال",
+  "vote_tally": "نتائج التصويت",
+  "tie": "تعادل"
 }

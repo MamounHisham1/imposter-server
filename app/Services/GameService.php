@@ -359,8 +359,15 @@ class GameService
 
             $generated = array_shift($pool);
 
-            // Assign imposter randomly
-            $imposter = $players->random();
+            // Assign imposter randomly (exclude previous round's imposter if any)
+            $previousImposterId = $room->rounds()->latest('id')->value('imposter_id');
+            $eligible = $previousImposterId
+                ? $players->reject(fn ($p) => $p->id == $previousImposterId)
+                : $players;
+            if ($eligible->isEmpty()) {
+                $eligible = $players;
+            }
+            $imposter = $eligible->random();
             $imposter->update(['is_imposter' => true]);
 
             // Create the first round
@@ -370,6 +377,7 @@ class GameService
                 'round_number' => $roundNumber,
                 'real_word' => $generated['word'],
                 'imposter_hint' => $generated['hint'],
+                'imposter_id' => $imposter->id,
             ]);
 
             $room->update([
@@ -657,7 +665,14 @@ class GameService
                 $roundResults['winner'] = 'imposter';
             }
 
-            // Check if game is over or advance to next round
+            // Save results on the round itself
+            $currentRound->update([
+                'winner' => $roundResults['winner'],
+                'imposter_caught' => $imposterCaught,
+                'vote_tally' => $roundResults['vote_tally'],
+            ]);
+
+            // Check if game is over
             $isGameOver = $currentRound->round_number >= $room->rounds_per_game;
 
             if ($isGameOver) {
@@ -679,14 +694,49 @@ class GameService
                 ];
             }
 
-            // Advance to next round
-            $nextRoundNumber = $currentRound->round_number + 1;
+            // Non-final round: pause at round_result so players see the results
+            $room->update(['status' => 'round_result']);
+
+            broadcast(new GameEvent($room->id, 'round_result', [
+                'room' => $this->formatRoom($room->fresh()),
+                'round_results' => $roundResults,
+                'is_game_over' => false,
+            ]));
+
+            return [
+                'round_results' => $roundResults,
+                'is_game_over' => false,
+            ];
+        });
+    }
+
+    /**
+     * Advance from round_result to the next round.
+     * Called when the creator clicks "Next Round" on the result screen.
+     */
+    public function advanceToNextRound(int $roomId, int $creatorId): array
+    {
+        return DB::transaction(function () use ($roomId, $creatorId) {
+            $room = Room::with('players')->findOrFail($roomId);
+
+            if ($room->creator_id !== $creatorId) {
+                throw new \Exception('Only the room creator can advance rounds.');
+            }
+
+            if ($room->status !== 'round_result') {
+                throw new \Exception('Not in round result state.');
+            }
+
+            $previousRound = $room->rounds()
+                ->where('round_number', $room->current_round)
+                ->first();
+
+            $nextRoundNumber = $previousRound->round_number + 1;
 
             // Reset imposter status
             $room->players()->update(['is_imposter' => false]);
 
-            // Pull the next word/hint from the pre-generated pool; fall back to a
-            // single AI call only if the pool is empty (e.g. older room or partial generation).
+            // Pull the next word/hint from the pre-generated pool
             $pool = $room->word_pool ?? [];
             if (! empty($pool)) {
                 $generated = array_shift($pool);
@@ -695,8 +745,15 @@ class GameService
                 $generated = $this->aiWordService->generateWord($usedWords, $room->language);
             }
 
-            // Assign new imposter
-            $newImposter = $room->fresh()->players->random();
+            // Assign new imposter (exclude previous round's imposter)
+            $previousImposterId = $previousRound->imposter_id;
+            $eligible = $previousImposterId
+                ? $room->fresh()->players->reject(fn ($p) => $p->id == $previousImposterId)
+                : $room->fresh()->players;
+            if ($eligible->isEmpty()) {
+                $eligible = $room->fresh()->players;
+            }
+            $newImposter = $eligible->random();
             $newImposter->update(['is_imposter' => true]);
 
             $nextRound = Round::create([
@@ -704,6 +761,7 @@ class GameService
                 'round_number' => $nextRoundNumber,
                 'real_word' => $generated['word'],
                 'imposter_hint' => $generated['hint'],
+                'imposter_id' => $newImposter->id,
             ]);
 
             $room->update([
@@ -712,20 +770,14 @@ class GameService
                 'word_pool' => array_values($pool),
             ]);
 
-            broadcast(new GameEvent($room->id, 'voting_complete', [
+            broadcast(new GameEvent($room->id, 'next_round', [
                 'room' => $this->formatRoom($room->fresh()),
-                'round_results' => $roundResults,
-                'next_round' => $this->formatRound($nextRound),
-                'is_game_over' => false,
+                'round' => $this->formatRound($nextRound),
             ]));
 
             return [
-                'round_results' => $roundResults,
-                'is_game_over' => false,
-                'next_round' => $this->formatRound($nextRound),
-                'new_imposter_id' => $newImposter->id,
-                'new_real_word' => $generated['word'],
-                'new_imposter_hint' => $generated['hint'],
+                'room' => $this->formatRoom($room->fresh()),
+                'round' => $this->formatRound($nextRound),
             ];
         });
     }
@@ -848,6 +900,23 @@ class GameService
                 $topVoted = $tally->filter(fn ($count) => $count === $maxVotes);
                 $imposterCaught = $topVoted->has($imposter?->id) && $topVoted->count() === 1;
                 $state['winner'] = $imposterCaught ? 'crew' : 'imposter';
+            }
+
+            $state['is_game_over'] = true;
+        }
+        if ($room->status === 'round_result') {
+            $lastRound = $room->rounds()->where('round_number', $room->current_round)->first();
+            if ($lastRound) {
+                $imposterPlayer = Player::find($lastRound->imposter_id);
+                $state['word'] = $lastRound->real_word;
+                $state['imposter_hint'] = $lastRound->imposter_hint;
+                $state['imposter'] = $imposterPlayer ? $this->formatPlayer($imposterPlayer) : null;
+                $state['winner'] = $lastRound->winner;
+                $state['imposter_caught'] = $lastRound->imposter_caught;
+                $state['vote_tally'] = $lastRound->vote_tally;
+                $state['hints'] = $this->formatHints($lastRound->hints);
+                $state['current_round'] = $this->formatRound($lastRound);
+                $state['is_game_over'] = false;
             }
         }
 

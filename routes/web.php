@@ -30,3 +30,4 @@ Route::post('/game/{code}/start-voting', [GameController::class, 'startVoting'])
 Route::get('/game/{code}/vote', [GameController::class, 'vote'])->name('vote.show');
 Route::post('/game/{code}/vote', [GameController::class, 'submitVote'])->name('game.vote');
 Route::get('/game/{code}/result', [GameController::class, 'result'])->name('result.show');
+Route::post('/game/{code}/next-round-result', [GameController::class, 'nextRoundFromResult'])->name('game.next-round-result');

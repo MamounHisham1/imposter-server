@@ -36,6 +36,10 @@ class GameController extends Controller
             return redirect()->route('result.show', $code);
         }
 
+        if ($state['room']['status'] === 'round_result') {
+            return redirect()->route('result.show', $code);
+        }
+
         if ($state['room']['status'] !== 'playing') {
             return redirect()->route('room.show', $code);
         }
@@ -195,5 +199,23 @@ class GameController extends Controller
         }
 
         return Inertia::render('Result', $state);
+    }
+
+    public function nextRoundFromResult(Request $request, string $code)
+    {
+        $playerId = $request->input('player_id') ?? session('player_id');
+        $roomId = $request->input('room_id') ?? session('room_id');
+
+        if (!$playerId || !$roomId) {
+            return redirect()->route('home');
+        }
+
+        try {
+            $this->gameService->advanceToNextRound($roomId, $playerId);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+
+        return redirect()->route('game.show', $code);
     }
 }
