@@ -21,23 +21,13 @@ function sendHeartbeat() {
     }
 }
 
-function sendLeave() {
-    const playerId = usePage().props.player?.id;
-    const roomCode = usePage().props.room?.code;
-    if (playerId && roomCode) {
-        navigator.sendBeacon('/room/' + roomCode + '/leave', new URLSearchParams({ player_id: playerId }));
-    }
-}
-
 onMounted(() => {
     sendHeartbeat();
     window._heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
-    window.addEventListener('beforeunload', sendLeave);
 });
 
 onUnmounted(() => {
     clearInterval(window._heartbeatTimer);
-    window.removeEventListener('beforeunload', sendLeave);
 });
 </script>
 

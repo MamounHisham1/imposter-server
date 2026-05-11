@@ -503,8 +503,8 @@ class GameService
         $newImposter = $room->fresh()->players->random();
         $newImposter->update(['is_imposter' => true]);
 
-        // New shuffled hint order for the continued round
-        $hintOrder = $room->fresh()->players->shuffle()->pluck('id')->toArray();
+        // Keep the same hint order for continued rounds
+        $hintOrder = $round->hint_order ?? $room->fresh()->players->shuffle()->pluck('id')->toArray();
 
         $nextRound = Round::create([
             'room_id' => $room->id,
@@ -525,6 +525,8 @@ class GameService
             'hints' => $this->formatHints($round->fresh()->hints),
             'word' => $round->real_word,
             'hint_for_imposter' => $round->imposter_hint,
+            'current_turn_player_id' => $hintOrder[0] ?? null,
+            'hint_order' => $hintOrder,
         ]));
 
         return ['round' => $this->formatRound($nextRound)];
@@ -838,8 +840,18 @@ class GameService
             throw new \Exception('Player does not belong to this room.');
         }
 
+        // Touch this player's heartbeat before purging — they just loaded the page
+        $player->update(['last_heartbeat_at' => now()]);
+        $player->refresh();
+
         $this->purgeStalePlayers($room);
         $room = $room->fresh();
+
+        // Re-verify player still exists after purge (edge case: deleted by someone else)
+        $player = Player::find($playerId);
+        if (! $player || $player->room_id !== $roomId) {
+            throw new \Exception('Player does not belong to this room.');
+        }
 
         $state = [
             'room' => $this->formatRoom($room),

@@ -142,10 +142,12 @@ onMounted(() => {
                         localCurrentTurnPlayerId.value = null;
                         break;
                     case 'round_complete':
-                        if (e.hints) localHints.value = e.hints;
+                        if (e.hints) localHints.value = [];
                         if (e.current_round) localRound.value = e.current_round;
                         if (e.word !== undefined) localWord.value = e.word;
                         if (e.hint_for_imposter !== undefined) localHintForImposter.value = e.hint_for_imposter;
+                        if (e.current_turn_player_id !== undefined) localCurrentTurnPlayerId.value = e.current_turn_player_id;
+                        if (e.hint_order) localHintOrder.value = e.hint_order;
                         hintInput.value = '';
                         localHintsComplete.value = false;
                         localHints.value = [];
