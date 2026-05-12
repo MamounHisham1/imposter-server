@@ -39,12 +39,15 @@ class RoomController extends Controller
                 $validated['language']
             );
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         session([
             'player_id' => $result['player']['id'],
             'room_id' => $result['room']['id'],
+            'locale' => $validated['language'],
         ]);
 
         return redirect()->route('room.show', $result['room']['code']);
@@ -63,12 +66,19 @@ class RoomController extends Controller
                 $validated['nickname']
             );
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            // Return a 422 validation error directly instead of back()->withErrors().
+            // back()->withErrors() triggers a 302 redirect, and during that redirect
+            // Inertia can detect a Vite asset version mismatch (409 Conflict),
+            // causing a full page reload that swallows the onError callback.
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         session([
             'player_id' => $result['player']['id'],
             'room_id' => $result['room']['id'],
+            'locale' => $result['room']['language'],
         ]);
 
         return redirect()->route('room.show', $result['room']['code']);
@@ -107,7 +117,9 @@ class RoomController extends Controller
         try {
             $this->gameService->toggleReady($playerId);
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return back();
@@ -124,7 +136,9 @@ class RoomController extends Controller
         try {
             $this->gameService->startGame($roomId);
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return redirect()->route('game.show', $code);

@@ -3,9 +3,11 @@ import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
+import { useErrorToasts } from '../Composables/useErrorToasts';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
+useErrorToasts();
 
 const props = defineProps({
     rooms: {
@@ -76,6 +78,7 @@ function toggleSettings() {
 
 function submitCreate() {
     createForm.post('/room', {
+        preserveScroll: true,
         onError: (errors) => {
             const msg = Object.values(errors)[0];
             if (msg) toastError(msg);
@@ -85,6 +88,7 @@ function submitCreate() {
 
 function submitJoin() {
     joinForm.post('/room/join', {
+        preserveScroll: true,
         onError: (errors) => {
             const msg = Object.values(errors)[0];
             if (msg) toastError(msg);
@@ -110,15 +114,15 @@ function submitJoin() {
             <!-- Create/Join Section -->
             <div class="wanted-poster p-6 md:p-8 md:transform md:rotate-1 text-center flex-1 z-10">
                 <header class="border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-6 md:mb-8">
-                    <h2 class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('game') || 'لعبة' }}</h2>
+                    <h2 class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('game') }}</h2>
                     <h1 class="text-5xl md:text-7xl wanted-text uppercase mb-1 md:mb-2">{{ t('title') }}</h1>
-                    <p class="text-lg md:text-xl text-gray-700">{{ t('subtitle') || 'من هو الخائن في البلدة؟' }}</p>
+                    <p class="text-lg md:text-xl text-gray-700">{{ t('subtitle') }}</p>
                 </header>
 
                 <div class="space-y-6 md:space-y-8">
                     <div>
                         <label class="block text-lg md:text-xl mb-1 md:mb-2 text-[#8b4513]">{{ t('nickname') }}:</label>
-                        <input v-model="createForm.nickname" type="text" class="western-input w-full text-2xl md:text-3xl py-1 md:py-2 text-center" :placeholder="t('nickname')" maxlength="20" required />
+                        <input v-model="createForm.nickname" type="text" class="western-input w-full text-2xl md:text-3xl py-1 md:py-2 text-center" :placeholder="t('nickname')" maxlength="20" />
                     </div>
 
                     <!-- Expandable Settings for Create -->
@@ -152,16 +156,16 @@ function submitJoin() {
                             <button @click="showSettings ? submitCreate() : toggleSettings()" :disabled="createForm.processing" class="western-btn text-xl md:text-3xl px-6 md:px-8 py-2 md:py-3 flex-1 disabled:opacity-50">
                                 {{ showSettings ? t('create_room') : t('create_room') }}
                             </button>
-                            <button v-if="showSettings" @click="toggleSettings" type="button" class="western-btn-alt px-4 text-xl border-2">{{ t('cancel') || 'إلغاء' }}</button>
+                            <button v-if="showSettings" @click="toggleSettings" type="button" class="western-btn-alt px-4 text-xl border-2">{{ t('cancel') }}</button>
                         </div>
                         
                         <div class="relative">
                             <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-[#8b4513]"></div></div>
-                            <div class="relative flex justify-center"><span class="bg-[#e8dcc4] px-3 md:px-4 text-base md:text-lg text-[#8b4513]">{{ t('or') || 'أو' }}</span></div>
+                            <div class="relative flex justify-center"><span class="bg-[#e8dcc4] px-3 md:px-4 text-base md:text-lg text-[#8b4513]">{{ t('or') }}</span></div>
                         </div>
 
                         <form @submit.prevent="submitJoin" class="flex flex-col sm:flex-row gap-2">
-                            <input v-model="joinForm.code" type="text" class="western-input flex-1 text-xl md:text-2xl text-center uppercase tracking-widest" :placeholder="t('room_code')" maxlength="6" required />
+                            <input v-model="joinForm.code" type="text" class="western-input flex-1 text-xl md:text-2xl text-center uppercase tracking-widest" :placeholder="t('room_code')" maxlength="6" />
                             <button type="submit" :disabled="joinForm.processing" class="western-btn western-btn-alt text-xl md:text-2xl px-4 py-2 disabled:opacity-50">{{ t('join_room') }}</button>
                         </form>
                     </div>

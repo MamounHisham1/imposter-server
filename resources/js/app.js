@@ -1,9 +1,10 @@
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { createSSRApp, h } from 'vue';
 import { createI18n } from 'vue-i18n';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 import Toast from './Components/Toast.vue';
+import { useToast } from './Composables/useToast';
 import '../css/app.css';
 
 import en from './i18n/en.json';
@@ -54,6 +55,16 @@ createInertiaApp({
 
         app.component('Toast', Toast);
         app.mount(el);
+
+        // Show server errors as toasts on every Inertia navigation
+        const { error: toastError } = useToast();
+        router.on('finish', (event) => {
+            const page = event.detail?.page || event.page;
+            const errors = page?.props?.errors || {};
+            Object.values(errors).forEach((msg) => {
+                if (msg) toastError(msg);
+            });
+        });
 
         // Register Service Worker
         if ('serviceWorker' in navigator) {

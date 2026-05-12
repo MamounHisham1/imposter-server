@@ -37,12 +37,20 @@ function toggleReady() {
         onSuccess: (page) => {
             localPlayers.value = page.props.players || localPlayers.value;
         },
+        onError: (errors) => {
+            const msg = Object.values(errors)[0];
+            if (msg) toastError(msg);
+        },
     });
 }
 
 function startGame() {
     router.post('/room/' + props.room.code + '/start', { player_id: props.player.id, room_id: props.room.id }, {
         preserveScroll: true,
+        onError: (errors) => {
+            const msg = Object.values(errors)[0];
+            if (msg) toastError(msg);
+        },
     });
 }
 
@@ -119,7 +127,7 @@ onUnmounted(() => {
                                 :style="`transform: rotate(${p.id % 2 === 0 ? '2deg' : '-2deg'});`"
                             >
                                 {{ p.nickname }}
-                                <span v-if="p.id === localRoom.creator_id" class="text-xs absolute -top-2 -right-2 bg-yellow-500 text-black px-1 rounded transform rotate-12">الشريف</span>
+                                <span v-if="p.id === localRoom.creator_id" class="text-xs absolute -top-2 -right-2 bg-yellow-500 text-black px-1 rounded transform rotate-12">الزعيم</span>
                                 <span v-if="p.id === player.id" class="text-xs text-black/50 ml-1">({{ t('you') }})</span>
                             </div>
                         </div>

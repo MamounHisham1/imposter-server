@@ -63,13 +63,17 @@ class GameController extends Controller
         try {
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         $roundId = $state['current_round']['id'] ?? null;
 
         if (!$roundId) {
-            return back()->withErrors(['error' => 'No active round']);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => __('errors.no_active_round'),
+            ]);
         }
 
         try {
@@ -79,7 +83,9 @@ class GameController extends Controller
                 $validated['content']
             );
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return back();
@@ -97,7 +103,9 @@ class GameController extends Controller
         try {
             $this->gameService->advanceRound($roomId, $playerId);
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return back();
@@ -115,7 +123,9 @@ class GameController extends Controller
         try {
             $this->gameService->startVoting($roomId, $playerId);
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return back();
@@ -164,19 +174,25 @@ class GameController extends Controller
         try {
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         $roundId = $state['current_round']['id'] ?? null;
 
         if (!$roundId) {
-            return back()->withErrors(['error' => 'No active round']);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => __('errors.no_active_round'),
+            ]);
         }
 
         try {
             $this->gameService->submitVote($roundId, $playerId, $validated['target_id']);
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return back();
@@ -213,7 +229,9 @@ class GameController extends Controller
         try {
             $this->gameService->advanceToNextRound($roomId, $playerId);
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return redirect()->route('game.show', $code);

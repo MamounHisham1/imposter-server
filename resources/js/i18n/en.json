@@ -63,5 +63,20 @@
   "how_to_play_desc_1": "1. Join a room with friends.",
   "how_to_play_desc_2": "2. If you're crew, find the traitor via hints.",
   "how_to_play_desc_3": "3. If you're the traitor, deceive everyone!",
-  "how_to_play_desc_4": "4. Vote to hang the traitor before they win."
+  "how_to_play_desc_4": "4. Vote to hang the traitor before they win.",
+  "err_room_not_found": "Room not found.",
+  "err_room_gone": "Room no longer exists.",
+  "err_game_started": "Game already in progress.",
+  "err_room_full": "Room is full.",
+  "err_nick_taken": "Nickname already taken in this room.",
+  "err_min_players": "Need at least 3 players to start.",
+  "err_hint_submitted": "Hint already submitted for this round.",
+  "err_not_your_turn": "Not your turn. Waiting for {player}.",
+  "err_creator_only": "Only the host can do this.",
+  "err_not_playing": "Game is not in playing state.",
+  "err_hints_incomplete": "Not all hints have been submitted yet.",
+  "err_vote_submitted": "Vote already submitted for this round.",
+  "err_not_round_result": "Not in round result state.",
+  "err_no_active_round": "No active round.",
+  "err_player_not_in_room": "Player does not belong to this room."
 }
