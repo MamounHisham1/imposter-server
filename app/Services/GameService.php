@@ -9,7 +9,6 @@ use App\Models\Player;
 use App\Models\Room;
 use App\Models\Round;
 use App\Models\Vote;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -17,122 +16,17 @@ class GameService
 {
     public function __construct(
         private AiWordService $aiWordService,
+        private RoomCleanupService $cleanupService,
     ) {}
 
     private function cleanAllStale(): void
     {
-        $staleThreshold = now()->subSeconds(60);
-
-        $stalePlayerIds = Player::where(function ($q) use ($staleThreshold) {
-            $q->where('last_heartbeat_at', '<', $staleThreshold)
-                ->orWhereNull('last_heartbeat_at');
-        })
-            ->where('created_at', '<', $staleThreshold)
-            ->pluck('id');
-
-        if ($stalePlayerIds->isEmpty()) {
-            return;
-        }
-
-        $affectedRoomIds = Player::whereIn('id', $stalePlayerIds)->pluck('room_id')->unique();
-
-        foreach ($affectedRoomIds as $roomId) {
-            $room = Room::find($roomId);
-            if (! $room) {
-                continue;
-            }
-
-            $wasCreator = $room->players()
-                ->whereIn('id', $stalePlayerIds)
-                ->where('id', $room->creator_id)
-                ->exists();
-
-            Player::whereIn('id', $stalePlayerIds)->where('room_id', $roomId)->delete();
-
-            $remainingCount = $room->fresh()->players()->count();
-
-            if ($remainingCount === 0) {
-                $room->delete();
-                if ($room->type === 'public') {
-                    broadcast(new RoomListEvent('removed', ['id' => $room->id, 'code' => $room->code]));
-                }
-                continue;
-            }
-
-            if ($wasCreator) {
-                $newCreator = $room->players()->orderBy('id')->first();
-                $room->update(['creator_id' => $newCreator->id]);
-            }
-
-            if ($room->type === 'public' && $room->status === 'waiting') {
-                broadcast(new RoomListEvent('updated', [
-                    'id' => $room->id,
-                    'code' => $room->code,
-                    'players_count' => $remainingCount,
-                    'max_players' => $room->max_players,
-                ]));
-            }
-        }
+        $this->cleanupService->purgeStalePlayersFromAllRooms(broadcastGameEvents: false);
     }
 
     private function purgeStalePlayers(Room $room): void
     {
-        $staleThreshold = now()->subSeconds(60);
-
-        $stalePlayerIds = $room->players()
-            ->where(function ($q) use ($staleThreshold) {
-                $q->where('last_heartbeat_at', '<', $staleThreshold)
-                    ->orWhereNull('last_heartbeat_at');
-            })
-            ->where('created_at', '<', $staleThreshold)
-            ->pluck('id');
-
-        if ($stalePlayerIds->isEmpty()) {
-            return;
-        }
-
-        $wasCreator = $room->players()
-            ->whereIn('id', $stalePlayerIds)
-            ->where('id', $room->creator_id)
-            ->exists();
-
-        Player::whereIn('id', $stalePlayerIds)->delete();
-
-        $remainingCount = $room->fresh()->players()->count();
-
-        if ($remainingCount === 0) {
-            $room->delete();
-
-            if ($room->type === 'public') {
-                broadcast(new RoomListEvent('removed', ['id' => $room->id, 'code' => $room->code]));
-            }
-
-            broadcast(new GameEvent($room->id, 'room_deleted', ['code' => $room->code]));
-
-            return;
-        }
-
-        if ($wasCreator) {
-            $newCreator = $room->fresh()->players()->orderBy('id')->first();
-            $room->update(['creator_id' => $newCreator->id]);
-
-            broadcast(new GameEvent($room->id, 'creator_changed', [
-                'new_creator_id' => $newCreator->id,
-            ]));
-        }
-
-        foreach ($stalePlayerIds as $pid) {
-            broadcast(new GameEvent($room->id, 'player_left', ['player_id' => $pid]));
-        }
-
-        if ($room->type === 'public' && $room->status === 'waiting') {
-            broadcast(new RoomListEvent('updated', [
-                'id' => $room->id,
-                'code' => $room->code,
-                'players_count' => $remainingCount,
-                'max_players' => $room->max_players,
-            ]));
-        }
+        $this->cleanupService->purgeStalePlayers($room, broadcastGameEvents: true);
     }
 
     /**
@@ -191,26 +85,26 @@ class GameService
         $room = Room::where('code', strtoupper($code))->first();
 
         if (! $room) {
-            throw new \Exception('Room not found.');
+            throw new \Exception(__('errors.room_not_found'));
         }
 
         $this->purgeStalePlayers($room);
 
         $room = $room->fresh();
         if (! $room) {
-            throw new \Exception('Room no longer exists.');
+            throw new \Exception(__('errors.room_gone'));
         }
 
         if ($room->status !== 'waiting') {
-            throw new \Exception('Game already in progress.');
+            throw new \Exception(__('errors.game_started'));
         }
 
         if ($room->players()->count() >= $room->max_players) {
-            throw new \Exception('Room is full.');
+            throw new \Exception(__('errors.room_full'));
         }
 
         if ($room->players()->where('nickname', $nickname)->exists()) {
-            throw new \Exception('Nickname already taken in this room.');
+            throw new \Exception(__('errors.nick_taken'));
         }
 
         $player = Player::create([
@@ -336,12 +230,12 @@ class GameService
             $room = Room::with('players')->findOrFail($roomId);
 
             if ($room->status !== 'waiting') {
-                throw new \Exception('Game already in progress.');
+                throw new \Exception(__('errors.game_started'));
             }
 
             $players = $room->players;
             if ($players->count() < 3) {
-                throw new \Exception('Need at least 3 players to start.');
+                throw new \Exception(__('errors.min_players'));
             }
 
             // Reset all players' imposter status from any prior rounds
@@ -418,7 +312,7 @@ class GameService
             ->first();
 
         if ($existing) {
-            throw new \Exception('Hint already submitted for this round.');
+            throw new \Exception(__('errors.hint_submitted'));
         }
 
         // Enforce turn order: only the current player in sequence can submit
@@ -429,7 +323,7 @@ class GameService
             $expectedPlayerId = $hintOrder[$submittedCount];
             if ($playerId != $expectedPlayerId) {
                 $expectedPlayer = Player::find($expectedPlayerId);
-                throw new \Exception('Not your turn. Waiting for ' . ($expectedPlayer->nickname ?? 'another player') . '.');
+                throw new \Exception(__('errors.not_your_turn', ['player' => $expectedPlayer->nickname ?? '']));
             }
         }
 
@@ -483,17 +377,17 @@ class GameService
         $room = Room::with('players')->findOrFail($roomId);
 
         if ($room->creator_id !== $creatorId) {
-            throw new \Exception('Only the room creator can advance rounds.');
+            throw new \Exception(__('errors.creator_only'));
         }
 
         if ($room->status !== 'playing') {
-            throw new \Exception('Game is not in playing state.');
+            throw new \Exception(__('errors.not_playing'));
         }
 
         $round = $room->rounds()->where('round_number', $room->current_round)->first();
 
         if (!$round || $round->hints()->count() < $room->players()->count()) {
-            throw new \Exception('Not all hints have been submitted yet.');
+            throw new \Exception(__('errors.hints_incomplete'));
         }
 
         // Same round, same imposter — just clear hints and restart the cycle
@@ -523,11 +417,11 @@ class GameService
         $room = Room::findOrFail($roomId);
 
         if ($room->creator_id !== $creatorId) {
-            throw new \Exception('Only the room creator can start voting.');
+            throw new \Exception(__('errors.creator_only'));
         }
 
         if ($room->status !== 'playing') {
-            throw new \Exception('Game is not in playing state.');
+            throw new \Exception(__('errors.not_playing'));
         }
 
         $room->update(['status' => 'voting']);
@@ -560,7 +454,7 @@ class GameService
             ->first();
 
         if ($existing) {
-            throw new \Exception('Vote already submitted for this round.');
+            throw new \Exception(__('errors.vote_submitted'));
         }
 
         Vote::create([
@@ -737,11 +631,11 @@ class GameService
             $room = Room::with('players')->findOrFail($roomId);
 
             if ($room->creator_id !== $creatorId) {
-                throw new \Exception('Only the room creator can advance rounds.');
+                throw new \Exception(__('errors.creator_only'));
             }
 
             if ($room->status !== 'round_result') {
-                throw new \Exception('Not in round result state.');
+                throw new \Exception(__('errors.not_round_result'));
             }
 
             $previousRound = $room->rounds()
@@ -823,7 +717,7 @@ class GameService
         $player = Player::findOrFail($playerId);
 
         if ($player->room_id !== $roomId) {
-            throw new \Exception('Player does not belong to this room.');
+            throw new \Exception(__('errors.player_not_in_room'));
         }
 
         // Touch this player's heartbeat before purging — they just loaded the page
@@ -836,7 +730,7 @@ class GameService
         // Re-verify player still exists after purge (edge case: deleted by someone else)
         $player = Player::find($playerId);
         if (! $player || $player->room_id !== $roomId) {
-            throw new \Exception('Player does not belong to this room.');
+            throw new \Exception(__('errors.player_not_in_room'));
         }
 
         $state = [
