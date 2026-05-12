@@ -11,6 +11,61 @@ use Illuminate\Support\Facades\DB;
 
 class RoomCleanupService
 {
+    public function purgeStalePlayers(Room $room, bool $broadcastGameEvents): CleanupResult
+    {
+        $staleThreshold = now()->subSeconds(60);
+
+        $stalePlayerIds = $room->players()
+            ->where(function ($q) use ($staleThreshold) {
+                $q->where('last_heartbeat_at', '<', $staleThreshold)
+                    ->orWhereNull('last_heartbeat_at');
+            })
+            ->where('created_at', '<', $staleThreshold)
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($stalePlayerIds)) {
+            return new CleanupResult();
+        }
+
+        return DB::transaction(fn () => $this->removePlayersFromRoom($room, $stalePlayerIds, $broadcastGameEvents));
+    }
+
+    public function purgeStalePlayersFromAllRooms(bool $broadcastGameEvents): void
+    {
+        $staleThreshold = now()->subSeconds(60);
+
+        $stalePlayerIds = Player::where(function ($q) use ($staleThreshold) {
+            $q->where('last_heartbeat_at', '<', $staleThreshold)
+                ->orWhereNull('last_heartbeat_at');
+        })
+            ->where('created_at', '<', $staleThreshold)
+            ->pluck('id');
+
+        if ($stalePlayerIds->isEmpty()) {
+            return;
+        }
+
+        $affectedRoomIds = Player::whereIn('id', $stalePlayerIds)
+            ->pluck('room_id')
+            ->unique()
+            ->filter();
+
+        foreach ($affectedRoomIds as $roomId) {
+            $room = Room::find($roomId);
+            if (! $room) {
+                continue;
+            }
+
+            $staleInRoom = Player::whereIn('id', $stalePlayerIds)
+                ->where('room_id', $roomId)
+                ->pluck('id')
+                ->toArray();
+
+            DB::transaction(fn () => $this->removePlayersFromRoom($room, $staleInRoom, $broadcastGameEvents));
+        }
+    }
+
     private function removePlayersFromRoom(Room $room, array $playerIds, bool $broadcastGameEvents): CleanupResult
     {
         if (empty($playerIds)) {
