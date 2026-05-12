@@ -496,33 +496,18 @@ class GameService
             throw new \Exception('Not all hints have been submitted yet.');
         }
 
-        $nextRoundNumber = $round->round_number + 1;
-
-        // Reassign imposter randomly
-        $room->players()->update(['is_imposter' => false]);
-        $newImposter = $room->fresh()->players->random();
-        $newImposter->update(['is_imposter' => true]);
-
-        // Keep the same hint order for continued rounds
-        $hintOrder = $round->hint_order ?? $room->fresh()->players->shuffle()->pluck('id')->toArray();
-
-        $nextRound = Round::create([
-            'room_id' => $room->id,
-            'round_number' => $nextRoundNumber,
-            'real_word' => $round->real_word,
-            'imposter_hint' => $round->imposter_hint,
-            'imposter_id' => $newImposter->id,
-            'hint_order' => $hintOrder,
-        ]);
-
-        $room->update(['current_round' => $nextRoundNumber]);
+        // Same round, same imposter — just clear hints and restart the cycle
+        $round->hints()->delete();
+        $round->touch();
         $room->touchActivity();
+
+        $hintOrder = $round->hint_order;
 
         broadcast(new GameEvent($room->id, 'round_complete', [
             'room' => $this->formatRoom($room->fresh()),
             'round' => $this->formatRound($round->fresh()),
-            'current_round' => $this->formatRound($nextRound),
-            'hints' => $this->formatHints($round->fresh()->hints),
+            'current_round' => $this->formatRound($round->fresh()),
+            'hints' => [],
             'word' => $round->real_word,
             'hint_for_imposter' => $round->imposter_hint,
             'current_turn_player_id' => $hintOrder[0] ?? null,
@@ -530,7 +515,7 @@ class GameService
             'players' => $this->formatPlayers($room->fresh()->players),
         ]));
 
-        return ['round' => $this->formatRound($nextRound)];
+        return ['round' => $this->formatRound($round->fresh())];
     }
 
     public function startVoting(int $roomId, int $creatorId): array
