@@ -40,6 +40,10 @@ function submitVote() {
         { target_id: selectedPlayerId.value, player_id: props.player.id },
         {
             preserveScroll: true,
+            onError: (errors) => {
+                const msg = Object.values(errors)[0];
+                if (msg) toastError(msg);
+            },
         }
     );
 }
@@ -50,6 +54,9 @@ onMounted(() => {
         window.Echo.channel('room.' + props.room.id)
             .listen('.game.event', (e) => {
                 switch (e.type) {
+                    case 'room_deleted':
+                        router.visit('/');
+                        break;
                     case 'vote_submitted':
                         break;
                     case 'game_over':
@@ -84,13 +91,13 @@ onUnmounted(() => {
                 <div class="wanted-poster p-4 md:p-10 md:transform md:rotate-1">
                     <header class="text-center border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-6 md:mb-8">
                         <h2 class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('round') }} {{ round?.round_number || 1 }}</h2>
-                        <h1 class="text-5xl md:text-7xl wanted-text uppercase">{{ t('vote_now') || 'وقت الشنق!' }}</h1>
-                        <p class="mt-2 md:mt-4 text-base md:text-2xl text-gray-700">{{ t('vote_instruction') || 'اختر من تعتقد أنه الخائن...' }}</p>
+                        <h1 class="text-5xl md:text-7xl wanted-text uppercase">{{ t('vote_now') }}</h1>
+                        <p class="mt-2 md:mt-4 text-base md:text-2xl text-gray-700">{{ t('vote_instruction') }}</p>
                     </header>
 
                     <!-- Hints Review -->
                     <div class="mb-8 border border-dashed border-[#8b4513] p-4 bg-[#8b4513]/10">
-                        <h3 class="text-2xl wanted-text mb-4 text-center">{{ t('hints') || 'التلميحات السابقة' }}</h3>
+                        <h3 class="text-2xl wanted-text mb-4 text-center">{{ t('hints') }}</h3>
                         <div class="max-h-40 overflow-y-auto space-y-2 pr-2 scrollbar-western">
                             <div v-for="(hint, idx) in hints" :key="idx" class="flex gap-2">
                                 <span class="font-bold text-[#8b2500] min-w-[80px]">{{ hint.player_nickname || hint.nickname }}:</span>
@@ -130,7 +137,7 @@ onUnmounted(() => {
 
                     <div class="mt-8 pt-6 border-t border-dashed border-[#8b4513]">
                         <button @click="submitVote" :disabled="!selectedPlayerId || hasVoted" class="western-btn text-2xl md:text-4xl px-6 py-4 w-full disabled:opacity-50 disabled:cursor-not-allowed">
-                            {{ hasVoted ? t('vote_submitted') : (t('submit_vote') || 'تنفيذ الشنق') }}
+                            {{ hasVoted ? t('vote_submitted') : t('submit_vote') }}
                         </button>
                     </div>
                 </div>

@@ -98,6 +98,10 @@ function submitHint() {
             onSuccess: () => {
                 hintInput.value = '';
             },
+            onError: (errors) => {
+                const msg = Object.values(errors)[0];
+                if (msg) toastError(msg);
+            },
         }
     );
 }
@@ -105,12 +109,22 @@ function submitHint() {
 function goToVoting() {
     router.post('/game/' + props.room.code + '/start-voting', {
         player_id: props.player.id,
+    }, {
+        onError: (errors) => {
+            const msg = Object.values(errors)[0];
+            if (msg) toastError(msg);
+        },
     });
 }
 
 function continueRound() {
     router.post('/game/' + props.room.code + '/next-round', {
         player_id: props.player.id,
+    }, {
+        onError: (errors) => {
+            const msg = Object.values(errors)[0];
+            if (msg) toastError(msg);
+        },
     });
 }
 
@@ -119,6 +133,9 @@ onMounted(() => {
         window.Echo.channel('room.' + props.room?.id)
             .listen('.game.event', (e) => {
                 switch (e.type) {
+                    case 'room_deleted':
+                        router.visit('/');
+                        break;
                     case 'hint_submitted':
                         if (e.hints) localHints.value = e.hints;
                         if (e.next_player_id !== undefined) localCurrentTurnPlayerId.value = e.next_player_id;
@@ -180,7 +197,7 @@ onUnmounted(() => {
                 <div class="wanted-poster p-4 md:p-12 md:transform md:rotate-1">
                     <header class="text-center border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-4 md:mb-8">
                         <h2 class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('round') }} {{ localRound?.round_number || round?.round_number || 1 }}</h2>
-                        <h1 class="text-5xl md:text-7xl wanted-text uppercase">{{ t('game') || 'اللعبة' }}</h1>
+                        <h1 class="text-5xl md:text-7xl wanted-text uppercase">{{ t('game') }}</h1>
                     </header>
 
                     <!-- The Word Display -->
@@ -190,7 +207,7 @@ onUnmounted(() => {
                             {{ wordValue }}
                         </div>
                         <p v-if="localPlayer?.is_imposter" class="text-base md:text-2xl leading-relaxed text-[#8b2500]">{{ t('you_are_imposter') }}</p>
-                        <p v-else class="text-base md:text-2xl leading-relaxed max-w-md mx-auto">{{ t('vote_instruction') || 'قدم تلميحاً من كلمة واحدة لتثبت أنك لست الخائن.' }}</p>
+                        <p v-else class="text-base md:text-2xl leading-relaxed max-w-md mx-auto">{{ t('vote_instruction') }}</p>
                     </div>
 
                     <!-- Turn Order & Submitted Hints -->
@@ -225,7 +242,7 @@ onUnmounted(() => {
                     <!-- Hint Input Area -->
                     <div v-if="!localHintsComplete && isMyTurn && !hasSubmittedHint" class="flex flex-col md:flex-row gap-4 md:gap-6 items-end mt-6 md:mt-12 bg-[#8b4513]/10 p-4 border-2 border-dashed border-[#8b4513]">
                         <div class="flex-1 w-full">
-                            <label class="block text-lg md:text-xl mb-1 md:mb-2 text-right">{{ t('your_hint') || 'تلميحك، يا شريك:' }}</label>
+                            <label class="block text-lg md:text-xl mb-1 md:mb-2 text-right">{{ t('your_hint') }}</label>
                             <input v-model="hintInput" @keyup.enter="submitHint" type="text" class="western-input w-full text-2xl md:text-4xl py-1 md:py-2 px-2 md:px-4" placeholder="قل ما لديك..." maxlength="100" />
                         </div>
                         <button @click="submitHint" :disabled="!hintInput.trim()" class="western-btn text-xl md:text-3xl px-6 md:px-8 py-3 md:py-4 uppercase w-full md:w-auto disabled:opacity-50">إرسال</button>
@@ -233,7 +250,7 @@ onUnmounted(() => {
 
                     <!-- Waiting Text -->
                     <div v-if="!localHintsComplete && !isMyTurn" class="mt-8 text-center text-xl md:text-2xl text-[#8b4513] animate-pulse">
-                        <p v-if="waitingPlayer">{{ waitingPlayer.nickname }} {{ t('is_typing_hint') || 'يكتب تلميحه...' }}</p>
+                        <p v-if="waitingPlayer">{{ waitingPlayer.nickname }} {{ t('is_typing_hint') }}</p>
                         <p v-else>{{ t('waiting_for_players') }}</p>
                     </div>
 
@@ -243,7 +260,7 @@ onUnmounted(() => {
                         <button @click="goToVoting" class="western-btn text-xl md:text-2xl px-4 py-3 flex-1">{{ t('start_voting') }}</button>
                     </div>
                     <div v-if="localHintsComplete && !isCreator" class="mt-8 text-center text-xl md:text-2xl text-[#8b4513] animate-pulse">
-                        {{ t('waiting_for_host') || 'في انتظار الشريف لبدء التصويت...' }}
+                        {{ t('waiting_for_host') }}
                     </div>
                 </div>
             </div>

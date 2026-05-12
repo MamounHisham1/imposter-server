@@ -40,8 +40,8 @@ const isTie = computed(() => props.winner === 'tie');
 const isCreator = computed(() => props.player?.id === props.room?.creator_id);
 
 const winnerLabel = computed(() => {
-    if (isTie.value) return t('tie') || 'تعادل!';
-    return isImposterWin.value ? (t('imposter_wins') || 'نجا المحتال!') : (t('crew_wins') || 'انتصرت العصابة!');
+    if (isTie.value) return t('tie');
+    return isImposterWin.value ? t('imposter_wins') : t('crew_wins');
 });
 
 onMounted(() => {
@@ -59,6 +59,9 @@ onMounted(() => {
         window.Echo.channel('room.' + props.room?.id)
             .listen('.game.event', (e) => {
                 switch (e.type) {
+                    case 'room_deleted':
+                        router.visit('/');
+                        break;
                     case 'next_round':
                         router.visit('/game/' + props.room.code);
                         break;
@@ -113,13 +116,13 @@ function backToLobby() {
                 <div class="wanted-poster p-4 md:p-10 md:transform md:rotate-1">
                     <header class="text-center border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-6">
                         <h2 v-if="!is_game_over && current_round" class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('round') }} {{ current_round.round_number }}</h2>
-                        <h2 v-else class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('game_over') || 'نهاية اللعبة' }}</h2>
+                        <h2 v-else class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('game_over') }}</h2>
                     </header>
 
                     <!-- Reveal Phase Loading -->
                     <div v-if="!revealPhase" class="text-center py-10">
                         <div class="inline-block w-16 h-16 border-4 border-dashed border-[#8b4513] border-t-transparent rounded-full animate-spin"></div>
-                        <p class="text-2xl mt-4 text-[#8b4513]">{{ t('revealing') || 'جاري كشف الحقائق...' }}</p>
+                        <p class="text-2xl mt-4 text-[#8b4513]">{{ t('revealing') }}</p>
                     </div>
 
                     <transition name="fade">
@@ -133,7 +136,7 @@ function backToLobby() {
 
                             <!-- Imposter Reveal -->
                             <div class="mb-8">
-                                <p class="text-xl md:text-2xl text-gray-700 mb-2">{{ t('the_imposter_was') || 'المحتال هو:' }}</p>
+                                <p class="text-xl md:text-2xl text-gray-700 mb-2">{{ t('the_imposter_was') }}</p>
                                 <div class="inline-block px-8 py-3 bg-[#8b2500] text-[#e8dcc4] text-4xl md:text-6xl border-4 border-[#4a1500] transform -rotate-2 shadow-lg">
                                     {{ imposter?.nickname || '???' }}
                                 </div>
@@ -148,19 +151,19 @@ function backToLobby() {
                             <div class="mt-8 pt-6 border-t border-dashed border-[#8b4513] flex flex-col sm:flex-row gap-4">
                                 <template v-if="!is_game_over">
                                     <button v-if="isCreator" @click="nextRound" :disabled="isAdvancing" class="western-btn text-2xl md:text-3xl px-6 py-3 w-full disabled:opacity-50">
-                                        {{ isAdvancing ? '...' : (t('next_round') || 'الجولة التالية') }}
+                                        {{ isAdvancing ? '...' : t('next_round') }}
                                     </button>
                                     <div v-else class="text-center text-xl text-[#8b4513] animate-pulse w-full py-3 border-2 border-dashed border-[#8b4513]">
-                                        {{ t('waiting_for_host') || 'في انتظار الشريف...' }}
+                                        {{ t('waiting_for_host') }}
                                     </div>
                                 </template>
                                 
                                 <template v-else>
                                     <button @click="playAgain" class="western-btn text-2xl md:text-3xl px-6 py-3 flex-1">
-                                        {{ t('play_again') || 'لعب مرة أخرى' }}
+                                        {{ t('play_again') }}
                                     </button>
                                     <button @click="backToLobby" class="western-btn-alt text-2xl md:text-3xl px-6 py-3 flex-1 border-2 border-[#8b4513]">
-                                        {{ t('back_to_lobby') || 'العودة للبلدة' }}
+                                        {{ t('back_to_lobby') }}
                                     </button>
                                 </template>
                             </div>
