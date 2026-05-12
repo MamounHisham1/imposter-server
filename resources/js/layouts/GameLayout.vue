@@ -32,75 +32,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-[#000a00] text-[#33ff66] flex flex-col">
-        <header class="relative px-4 pt-4 pb-2">
-            <div class="flex items-center justify-between">
-                <h1
-                    class="text-2xl font-bold tracking-[0.3em]"
-                    style="
-                        background: linear-gradient(90deg, #00ff41, #33ff66, #00ff41);
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        background-clip: text;
-                    "
-                >
+    <div class="flex flex-col min-h-screen">
+        <header class="relative px-4 pt-4 pb-2 z-10 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <h1 class="text-3xl wanted-text uppercase tracking-widest text-[#4a2511]">
                     {{ t('title') }}
                 </h1>
-                <div
-                    v-if="roomCode"
-                    class="font-mono text-sm tracking-[0.2em] border border-[#00ff41]/40 px-3 py-1 rounded bg-[#00ff41]/5"
-                >
-                    {{ roomCode }}
-                </div>
             </div>
-            <div class="glitch-line mt-2"></div>
+            <div v-if="roomCode" class="border-2 border-dashed border-[#8b4513] px-3 py-1 bg-[#d3bfa1] text-[#4a2511] font-sans font-bold text-lg">
+                {{ roomCode }}
+            </div>
         </header>
-        <main class="flex-1 px-4 py-4">
+        <main class="flex-1">
             <slot />
         </main>
     </div>
 </template>
 
 <style scoped>
-.glitch-line {
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #00ff41, #33ff66, #00ff41, transparent);
-    position: relative;
-    overflow: visible;
-}
-
-.glitch-line::before {
-    content: '';
-    position: absolute;
-    top: -1px;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: inherit;
-    opacity: 0.3;
-    animation: glitch-skew 3s infinite linear alternate-reverse;
-}
-
-@keyframes glitch-skew {
-    0% {
-        transform: skewX(0deg);
-        opacity: 0.3;
-    }
-    25% {
-        transform: skewX(-2deg);
-        opacity: 0.5;
-    }
-    50% {
-        transform: skewX(1deg);
-        opacity: 0.2;
-    }
-    75% {
-        transform: skewX(-1deg);
-        opacity: 0.4;
-    }
-    100% {
-        transform: skewX(0deg);
-        opacity: 0.3;
-    }
-}
+.wanted-text { color: #4a2511; text-shadow: 1px 1px 0px rgba(255,255,255,0.8); }
 </style>

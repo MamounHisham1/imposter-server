@@ -73,148 +73,83 @@ onUnmounted(() => {
 <template>
     <GameLayout :room-code="room.code">
         <Toast />
-        <div class="max-w-lg mx-auto space-y-6">
-            <!-- Vote Header -->
-            <div class="text-center py-4">
-                <div class="flex items-center justify-center gap-2 mb-2">
-                    <!-- Crosshair SVG -->
-                    <svg class="w-6 h-6 text-[#ff3333]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="22" y1="12" x2="18" y2="12" />
-                        <line x1="6" y1="12" x2="2" y2="12" />
-                        <line x1="12" y1="6" x2="12" y2="2" />
-                        <line x1="12" y1="22" x2="12" y2="18" />
-                    </svg>
-                    <h2 class="text-2xl font-bold tracking-[0.2em] text-[#ff3333]">
-                        {{ t('vote_now') }}
-                    </h2>
-                </div>
-                <p class="text-sm text-[#00ff41]/50">{{ t('vote_instruction') }}</p>
-            </div>
+        <div class="min-h-screen flex items-center justify-center p-2 md:p-4">
+            <div class="wood-panel max-w-4xl w-full p-4 md:p-10 relative">
+                <!-- Nails -->
+                <div class="absolute top-2 left-2 md:top-4 md:left-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+                <div class="absolute top-2 right-2 md:top-4 md:right-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+                <div class="absolute bottom-2 left-2 md:bottom-4 md:left-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+                <div class="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
 
-            <!-- Round info -->
-            <div class="text-center">
-                <div
-                    class="inline-block px-4 py-1 text-xs font-bold tracking-[0.3em] border border-[#00ff41]/30 bg-[#00ff41]/5 text-[#00ff41]/60"
-                    style="clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);"
-                >
-                    {{ t('round') }} {{ round?.round_number || 1 }}
-                </div>
-            </div>
+                <div class="wanted-poster p-4 md:p-10 md:transform md:rotate-1">
+                    <header class="text-center border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-6 md:mb-8">
+                        <h2 class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('round') }} {{ round?.round_number || 1 }}</h2>
+                        <h1 class="text-5xl md:text-7xl wanted-text uppercase">{{ t('vote_now') || 'وقت الشنق!' }}</h1>
+                        <p class="mt-2 md:mt-4 text-base md:text-2xl text-gray-700">{{ t('vote_instruction') || 'اختر من تعتقد أنه الخائن...' }}</p>
+                    </header>
 
-            <!-- Hints Review -->
-            <div class="border border-[#00ff41]/20 bg-[#001200]/50 p-4">
-                <h3 class="text-xs tracking-[0.3em] text-[#00ff41]/50 uppercase mb-3 flex items-center gap-2">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                    </svg>
-                    {{ t('hints') }}
-                </h3>
-                <div class="max-h-40 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-                    <div
-                        v-for="(hint, idx) in hints"
-                        :key="idx"
-                        class="flex items-start gap-3 bg-[#000a00]/60 px-3 py-2 border-l-2 border-[#00ff41]/30"
-                    >
-                        <span class="text-xs text-[#00ff41]/40 font-mono shrink-0">
-                            {{ hint.player_nickname || hint.nickname || '???' }}
-                        </span>
-                        <span class="text-sm text-[#33ff66]">{{ hint.content || hint.hint }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Player Cards for Voting -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <button
-                    v-for="p in players"
-                    :key="p.id"
-                    @click="selectPlayer(p.id)"
-                    :disabled="p.id === player.id || hasVoted"
-                    class="relative group transition-all duration-200"
-                >
-                    <!-- Selection ring -->
-                    <div
-                        class="absolute -inset-1 border-2 transition-all duration-200"
-                        :class="[
-                            selectedPlayerId === p.id
-                                ? 'border-[#ff3333] opacity-100'
-                                : 'border-transparent opacity-0 group-hover:border-[#00ff41]/30 group-hover:opacity-100',
-                        ]"
-                        style="clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);"
-                    ></div>
-
-                    <div
-                        class="flex flex-col items-center gap-2 p-4 bg-[#001200]/60 border transition-all duration-200"
-                        :class="[
-                            p.id === player.id
-                                ? 'border-[#00ff41]/10 opacity-40 cursor-not-allowed'
-                                : selectedPlayerId === p.id
-                                    ? 'border-[#ff3333]/60 bg-[#ff3333]/10'
-                                    : 'border-[#00ff41]/15 hover:border-[#00ff41]/40',
-                        ]"
-                        style="clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);"
-                    >
-                        <!-- Hexagonal avatar -->
-                        <div
-                            class="w-14 h-14 flex items-center justify-center text-lg font-bold"
-                            :class="selectedPlayerId === p.id ? 'bg-[#ff3333]/20 text-[#ff3333]' : 'bg-[#00ff41]/10 text-[#00ff41]'"
-                            style="clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);"
-                        >
-                            {{ p.nickname.charAt(0).toUpperCase() }}
+                    <!-- Hints Review -->
+                    <div class="mb-8 border border-dashed border-[#8b4513] p-4 bg-[#8b4513]/10">
+                        <h3 class="text-2xl wanted-text mb-4 text-center">{{ t('hints') || 'التلميحات السابقة' }}</h3>
+                        <div class="max-h-40 overflow-y-auto space-y-2 pr-2 scrollbar-western">
+                            <div v-for="(hint, idx) in hints" :key="idx" class="flex gap-2">
+                                <span class="font-bold text-[#8b2500] min-w-[80px]">{{ hint.player_nickname || hint.nickname }}:</span>
+                                <span class="text-[#4a2511]">{{ hint.content || hint.hint }}</span>
+                            </div>
                         </div>
-                        <span
-                            class="text-xs font-mono tracking-wider"
-                            :class="selectedPlayerId === p.id ? 'text-[#ff3333]' : 'text-[#33ff66]'"
-                        >
-                            {{ p.nickname }}
-                        </span>
-
-                        <!-- Selected indicator -->
-                        <svg
-                            v-if="selectedPlayerId === p.id"
-                            class="w-5 h-5 text-[#ff3333]"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-
-                        <span v-if="p.id === player.id" class="text-[10px] text-[#00ff41]/30">{{ t('you') }}</span>
                     </div>
-                </button>
-            </div>
 
-            <!-- Submit Vote -->
-            <button
-                @click="submitVote"
-                :disabled="!selectedPlayerId || hasVoted"
-                class="w-full py-4 font-bold text-lg tracking-[0.2em] border border-[#ff3333]/60 bg-[#ff3333]/10 text-[#ff3333] hover:bg-[#ff3333]/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                style="clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);"
-            >
-                <span class="flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" stroke-linecap="round" stroke-linejoin="round" />
-                        <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                    {{ hasVoted ? t('vote_submitted') : t('submit_vote') }}
-                </span>
-            </button>
+                    <!-- Player Grid -->
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <button v-for="p in players" :key="p.id" 
+                            @click="selectPlayer(p.id)"
+                            :disabled="p.id === player.id || hasVoted"
+                            class="relative p-4 border-2 shadow transition-all duration-200"
+                            :class="[
+                                p.id === player.id ? 'bg-[#d3bfa1]/50 border-dashed border-[#8b4513]/50 opacity-60 cursor-not-allowed' :
+                                selectedPlayerId === p.id ? 'bg-[#8b2500] text-[#e8dcc4] border-[#4a1500] scale-105 z-10' :
+                                'bg-[#d3bfa1] text-[#4a2511] border-[#8b4513] hover:bg-[#c4af8e]'
+                            ]"
+                            :style="`transform: rotate(${p.id % 2 === 0 ? '1deg' : '-1deg'});`"
+                        >
+                            <div class="text-xl md:text-2xl font-bold mb-1">{{ p.nickname }}</div>
+                            <div v-if="p.id === player.id" class="text-sm opacity-70">({{ t('you') }})</div>
+                            
+                            <!-- Crosshair / Stamp if selected -->
+                            <div v-if="selectedPlayerId === p.id" class="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
+                                <svg class="w-16 h-16 text-[#e8dcc4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="22" y1="12" x2="18" y2="12" />
+                                    <line x1="6" y1="12" x2="2" y2="12" />
+                                    <line x1="12" y1="6" x2="12" y2="2" />
+                                    <line x1="12" y1="22" x2="12" y2="18" />
+                                </svg>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="mt-8 pt-6 border-t border-dashed border-[#8b4513]">
+                        <button @click="submitVote" :disabled="!selectedPlayerId || hasVoted" class="western-btn text-2xl md:text-4xl px-6 py-4 w-full disabled:opacity-50 disabled:cursor-not-allowed">
+                            {{ hasVoted ? t('vote_submitted') : (t('submit_vote') || 'تنفيذ الشنق') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </GameLayout>
 </template>
 
 <style scoped>
-.scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-}
-.scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #00ff4133;
-    border-radius: 2px;
-}
+.wood-panel { background-color: #8b5a2b; border: 4px solid #5c3a21; box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 5px 10px rgba(0,0,0,0.8); }
+@media (min-width: 768px) { .wood-panel { border-width: 8px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.8); } }
+.wanted-poster { background-color: #e8dcc4; border: 2px solid #b8a07e; box-shadow: inset 0 0 30px rgba(139, 69, 19, 0.2), 0 3px 10px rgba(0,0,0,0.5); background-image: radial-gradient(circle, transparent 20%, #e8dcc4 20%, #e8dcc4 80%, transparent 80%, transparent), radial-gradient(circle, transparent 20%, #e8dcc4 20%, #e8dcc4 80%, transparent 80%, transparent) 25px 25px; background-size: 50px 50px; }
+.wanted-text { color: #4a2511; text-shadow: 1px 1px 0px rgba(255,255,255,0.8); }
+.western-btn { background-color: #8b2500; color: #e8dcc4; border: 3px solid #4a1500; box-shadow: 2px 2px 0px #3a1000; transition: all 0.1s; cursor: pointer; }
+@media (min-width: 768px) { .western-btn { border-width: 4px; box-shadow: 3px 3px 0px #3a1000; } }
+.western-btn:active:not(:disabled) { box-shadow: 0px 0px 0px #3a1000; transform: translate(2px, 2px); }
+
+.scrollbar-western::-webkit-scrollbar { width: 6px; }
+@media (min-width: 768px) { .scrollbar-western::-webkit-scrollbar { width: 8px; } }
+.scrollbar-western::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-western::-webkit-scrollbar-thumb { background: #8b4513; border-radius: 4px; }
 </style>

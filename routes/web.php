@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Player;
 
 Route::get('/', [RoomController::class, 'index'])->name('home');
+Route::inertia('/install', 'Install')->name('install');
 
 Route::post('/room', [RoomController::class, 'store'])->name('room.store');
 Route::post('/room/join', [RoomController::class, 'join'])->name('room.join');

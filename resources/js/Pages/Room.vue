@@ -31,8 +31,6 @@ const allReady = computed(() => {
     );
 });
 
-const readyForm = useForm({});
-
 function toggleReady() {
     router.post('/room/' + props.room.code + '/ready', { player_id: props.player.id }, {
         preserveScroll: true,
@@ -98,126 +96,61 @@ onUnmounted(() => {
 <template>
     <GameLayout :room-code="room.code">
         <Toast />
-        <div class="max-w-lg mx-auto space-y-6">
-            <!-- Room Code Display -->
-            <div class="text-center py-4">
-                <p class="text-xs tracking-[0.3em] text-[#00ff41]/50 uppercase mb-1">{{ t('room_code') }}</p>
-                <p
-                    class="text-4xl sm:text-5xl font-mono font-bold tracking-[0.5em] text-[#00ff41]"
-                    style="
-                        text-shadow: 0 0 20px rgba(0, 255, 65, 0.4), 0 0 40px rgba(0, 255, 65, 0.1);
-                    "
-                >
-                    {{ room.code }}
-                </p>
-            </div>
+        <div class="min-h-screen flex items-center justify-center p-2 md:p-4">
+            <div class="wood-panel max-w-3xl w-full p-4 md:p-12 relative">
+                <!-- Nails -->
+                <div class="absolute top-2 left-2 md:top-4 md:left-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+                <div class="absolute top-2 right-2 md:top-4 md:right-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+                <div class="absolute bottom-2 left-2 md:bottom-4 md:left-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+                <div class="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
 
-            <!-- Player List -->
-            <div class="border border-[#00ff41]/20 bg-[#001200]/50 p-4">
-                <h3 class="text-xs tracking-[0.3em] text-[#00ff41]/50 uppercase mb-3">
-                    {{ t('waiting_for_players') }} ({{ localPlayers.length }})
-                </h3>
-                <div class="space-y-2">
-                    <div
-                        v-for="p in localPlayers"
-                        :key="p.id"
-                        class="flex items-center justify-between bg-[#000a00]/60 border border-[#00ff41]/10 px-4 py-2"
-                    >
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="w-8 h-8 flex items-center justify-center text-xs font-bold"
-                                :class="p.is_ready ? 'bg-[#00ff41]/20 text-[#00ff41]' : 'bg-[#00ff41]/5 text-[#00ff41]/30'"
-                                style="clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);"
+                <div class="wanted-poster p-4 md:p-10 md:transform md:rotate-1">
+                    <header class="text-center border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-6">
+                        <h2 class="text-xl md:text-2xl tracking-widest mb-1 text-[#8b4513]">{{ t('room_code') }}</h2>
+                        <h1 class="text-5xl md:text-7xl wanted-text uppercase font-sans tracking-widest">{{ room.code }}</h1>
+                    </header>
+
+                    <div class="text-center mb-6">
+                        <h3 class="text-2xl md:text-3xl wanted-text mb-4">{{ t('waiting_for_players') }} ({{ localPlayers.length }})</h3>
+                        <div class="flex flex-wrap justify-center gap-2 md:gap-4">
+                            <div v-for="p in localPlayers" :key="p.id" 
+                                class="px-3 md:px-4 py-2 border shadow text-lg md:text-2xl transition-all"
+                                :class="p.is_ready ? 'bg-[#8b4513] text-[#e8dcc4] border-[#4a2511]' : 'bg-[#d3bfa1] text-[#4a2511] border-[#8b4513] opacity-80'"
+                                :style="`transform: rotate(${p.id % 2 === 0 ? '2deg' : '-2deg'});`"
                             >
-                                {{ p.nickname.charAt(0).toUpperCase() }}
-                            </div>
-                            <span class="font-mono text-sm" :class="p.is_ready ? 'text-[#33ff66]' : 'text-[#00ff41]/50'">
                                 {{ p.nickname }}
-                            </span>
-                            <span
-                                v-if="p.id === localRoom.creator_id"
-                                class="text-[10px] tracking-wider text-[#00ff41]/40 border border-[#00ff41]/20 px-1"
-                            >
-                                {{ t('host') }}
-                            </span>
+                                <span v-if="p.id === localRoom.creator_id" class="text-xs absolute -top-2 -right-2 bg-yellow-500 text-black px-1 rounded transform rotate-12">الشريف</span>
+                                <span v-if="p.id === player.id" class="text-xs text-black/50 ml-1">({{ t('you') }})</span>
+                            </div>
                         </div>
-                        <div v-if="p.is_ready" class="text-[#00ff41]">
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                <polyline points="20 6 9 17 4 12" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                        </div>
-                        <div v-else class="text-[#00ff41]/30">
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="15" y1="9" x2="9" y2="15" stroke-linecap="round" />
-                                <line x1="9" y1="9" x2="15" y2="15" stroke-linecap="round" />
-                            </svg>
-                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-4 mt-8 pt-6 border-t border-dashed border-[#8b4513]">
+                        <button @click="toggleReady" class="western-btn text-xl md:text-3xl px-6 py-3 w-full" :class="player.is_ready ? 'bg-[#4a2511] border-[#2b1d14]' : ''">
+                            {{ player.is_ready ? t('not_ready') : t('ready') }}
+                        </button>
+                        
+                        <button v-if="isCreator" @click="startGame" :disabled="!allReady" class="western-btn-alt western-btn text-xl md:text-3xl px-6 py-3 w-full disabled:opacity-50 border-2 border-[#8b4513]">
+                            {{ t('start_game') }}
+                        </button>
+
+                        <button @click="leaveRoom" class="text-[#8b4513] text-lg hover:underline mt-2">
+                            {{ t('leave_room') }}
+                        </button>
                     </div>
                 </div>
             </div>
-
-            <!-- Action Buttons -->
-            <div class="space-y-3">
-                <!-- Ready Toggle -->
-                <button
-                    @click="toggleReady"
-                    class="w-full py-3 font-bold text-lg tracking-wider border transition-all"
-                    :class="
-                        player.is_ready
-                            ? 'border-[#ff3333]/60 bg-[#ff3333]/10 text-[#ff3333] hover:bg-[#ff3333]/20'
-                            : 'border-[#00ff41] bg-[#00ff41]/15 text-[#00ff41] hover:bg-[#00ff41]/25'
-                    "
-                    style="clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);"
-                >
-                    <span class="flex items-center justify-center gap-2">
-                        <svg v-if="player.is_ready" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="15" y1="9" x2="9" y2="15" stroke-linecap="round" />
-                            <line x1="9" y1="9" x2="15" y2="15" stroke-linecap="round" />
-                        </svg>
-                        <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                            <polyline points="20 6 9 17 4 12" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                        {{ player.is_ready ? t('not_ready') : t('ready') }}
-                    </span>
-                </button>
-
-                <!-- Start Game (creator only) -->
-                <button
-                    v-if="isCreator"
-                    @click="startGame"
-                    :disabled="!allReady"
-                    class="w-full py-4 font-bold text-xl tracking-[0.2em] border border-[#00ff41] bg-[#00ff41]/20 text-[#00ff41] hover:bg-[#00ff41]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                    style="clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);"
-                >
-                    <span class="flex items-center justify-center gap-2">
-                        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                            <polygon points="5 3 19 12 5 21 5 3" />
-                        </svg>
-                        {{ t('start_game') }}
-                    </span>
-                </button>
-
-                <p v-if="isCreator && !allReady" class="text-center text-xs text-[#00ff41]/30 font-mono">
-                    {{ t('waiting_for_players') }}
-                </p>
-            </div>
-
-            <!-- Leave Room -->
-            <button
-                @click="leaveRoom"
-                class="w-full py-2 text-sm tracking-wider border border-[#00ff41]/20 bg-transparent text-[#00ff41]/40 hover:text-[#00ff41] hover:border-[#00ff41]/40 transition-colors"
-                style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
-            >
-                <span class="flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 12H5" stroke-linecap="round" />
-                        <polyline points="12 19 5 12 12 5" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                    {{ t('leave_room') }}
-                </span>
-            </button>
         </div>
     </GameLayout>
 </template>
+
+<style scoped>
+.wood-panel { background-color: #8b5a2b; border: 4px solid #5c3a21; box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 5px 10px rgba(0,0,0,0.8); }
+@media (min-width: 768px) { .wood-panel { border-width: 8px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.8); } }
+.wanted-poster { background-color: #e8dcc4; border: 2px solid #b8a07e; box-shadow: inset 0 0 30px rgba(139, 69, 19, 0.2), 0 3px 10px rgba(0,0,0,0.5); background-image: radial-gradient(circle, transparent 20%, #e8dcc4 20%, #e8dcc4 80%, transparent 80%, transparent), radial-gradient(circle, transparent 20%, #e8dcc4 20%, #e8dcc4 80%, transparent 80%, transparent) 25px 25px; background-size: 50px 50px; }
+.wanted-text { color: #4a2511; text-shadow: 1px 1px 0px rgba(255,255,255,0.8); }
+.western-btn { background-color: #8b2500; color: #e8dcc4; border: 3px solid #4a1500; box-shadow: 2px 2px 0px #3a1000; transition: all 0.1s; cursor: pointer; }
+@media (min-width: 768px) { .western-btn { border-width: 4px; box-shadow: 3px 3px 0px #3a1000; } }
+.western-btn:active:not(:disabled) { box-shadow: 0px 0px 0px #3a1000; transform: translate(2px, 2px); }
+.western-btn-alt { background-color: #d3bfa1; color: #4a2511; border-color: #8b4513; }
+</style>

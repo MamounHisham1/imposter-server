@@ -527,6 +527,7 @@ class GameService
             'hint_for_imposter' => $round->imposter_hint,
             'current_turn_player_id' => $hintOrder[0] ?? null,
             'hint_order' => $hintOrder,
+            'players' => $this->formatPlayers($room->fresh()->players),
         ]));
 
         return ['round' => $this->formatRound($nextRound)];

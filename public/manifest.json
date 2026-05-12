@@ -1,0 +1,23 @@
+{
+  "name": "الخائن - Traitor",
+  "short_name": "الخائن",
+  "description": "من هو الخائن في البلدة؟",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#2b1d14",
+  "theme_color": "#8b2500",
+  "icons": [
+    {
+      "src": "/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

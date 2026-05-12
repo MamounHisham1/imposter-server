@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
@@ -14,8 +14,8 @@ const props = defineProps({
     },
 });
 
-const activePanel = ref(null); // 'create' | 'join' | null
 const localRooms = ref([...props.rooms]);
+const showSettings = ref(false);
 
 onMounted(() => {
     if (window.Echo) {
@@ -54,7 +54,7 @@ const createForm = useForm({
     type: 'public',
     max_players: 6,
     rounds_per_game: 3,
-    language: 'en',
+    language: 'ar', // Defaulting to Arabic for this theme
 });
 
 const joinForm = useForm({
@@ -62,12 +62,16 @@ const joinForm = useForm({
     nickname: '',
 });
 
-function showCreate() {
-    activePanel.value = activePanel.value === 'create' ? null : 'create';
-}
+// Sync nicknames
+watch(() => createForm.nickname, (val) => {
+    joinForm.nickname = val;
+});
+watch(() => joinForm.nickname, (val) => {
+    createForm.nickname = val;
+});
 
-function showJoin() {
-    activePanel.value = activePanel.value === 'join' ? null : 'join';
+function toggleSettings() {
+    showSettings.value = !showSettings.value;
 }
 
 function submitCreate() {
@@ -90,327 +94,137 @@ function submitJoin() {
 </script>
 
 <template>
-    <div class="min-h-screen bg-[#000a00] text-[#33ff66] flex flex-col items-center px-4 py-8">
+    <div class="min-h-screen flex flex-col items-center justify-center p-2 md:p-4">
         <Toast />
-        <!-- Title -->
-        <h1
-            class="text-5xl sm:text-7xl font-extrabold tracking-[0.4em] mb-2 text-center"
-            style="
-                background: linear-gradient(180deg, #00ff41 0%, #33ff66 50%, #00ff41 100%);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-                text-shadow: none;
-            "
-        >
-            {{ t('title') }}
-        </h1>
-
-        <!-- Decorative line -->
-        <div class="w-48 h-[2px] bg-gradient-to-r from-transparent via-[#00ff41] to-transparent mb-10"></div>
-
-        <!-- Main buttons -->
-        <div class="flex flex-col sm:flex-row gap-4 mb-8 w-full max-w-md">
-            <button
-                @click="showCreate"
-                class="flex-1 relative group"
-            >
-                <div
-                    class="absolute inset-0 bg-[#00ff41]/10 group-hover:bg-[#00ff41]/20 transition-all duration-300"
-                    style="clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);"
-                ></div>
-                <div
-                    class="relative border border-[#00ff41]/60 px-6 py-4 font-bold text-lg tracking-wider text-[#00ff41] group-hover:text-[#33ff66] transition-colors"
-                    style="clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);"
-                >
-                    <!-- Plus SVG icon -->
-                    <span class="flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 5v14M5 12h14" stroke-linecap="round" />
-                        </svg>
-                        {{ t('create_room') }}
-                    </span>
-                </div>
-            </button>
-
-            <button
-                @click="showJoin"
-                class="flex-1 relative group"
-            >
-                <div
-                    class="absolute inset-0 bg-[#00ff41]/10 group-hover:bg-[#00ff41]/20 transition-all duration-300"
-                    style="clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);"
-                ></div>
-                <div
-                    class="relative border border-[#00ff41]/60 px-6 py-4 font-bold text-lg tracking-wider text-[#00ff41] group-hover:text-[#33ff66] transition-colors"
-                    style="clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);"
-                >
-                    <!-- Enter SVG icon -->
-                    <span class="flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" stroke-linecap="round" stroke-linejoin="round" />
-                            <polyline points="10 17 15 12 10 7" stroke-linecap="round" stroke-linejoin="round" />
-                            <line x1="15" y1="12" x2="3" y2="12" stroke-linecap="round" />
-                        </svg>
-                        {{ t('join_room') }}
-                    </span>
-                </div>
-            </button>
+        
+        <div class="text-center mb-4 md:mb-8 flex flex-col items-center">
+            <img :src="'/logo.png'" alt="Traitor Logo" class="w-40 h-40 md:w-64 md:h-64 object-contain drop-shadow-2xl" />
         </div>
 
-        <!-- Create Room Panel -->
-        <transition name="slide">
-            <div
-                v-if="activePanel === 'create'"
-                class="w-full max-w-md border border-[#00ff41]/30 bg-[#001200]/80 p-6 mb-6"
-                style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);"
-            >
-                <form @submit.prevent="submitCreate" class="space-y-5">
-                    <!-- Nickname -->
+        <div class="wood-panel max-w-5xl w-full p-4 md:p-8 relative flex flex-col md:flex-row gap-6 md:gap-8">
+            <div class="absolute top-2 left-2 md:top-4 md:left-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+            <div class="absolute top-2 right-2 md:top-4 md:right-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+            <div class="absolute bottom-2 left-2 md:bottom-4 md:left-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+            <div class="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
+
+            <!-- Create/Join Section -->
+            <div class="wanted-poster p-6 md:p-8 md:transform md:rotate-1 text-center flex-1 z-10">
+                <header class="border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-6 md:mb-8">
+                    <h2 class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('game') || 'لعبة' }}</h2>
+                    <h1 class="text-5xl md:text-7xl wanted-text uppercase mb-1 md:mb-2">{{ t('title') }}</h1>
+                    <p class="text-lg md:text-xl text-gray-700">{{ t('subtitle') || 'من هو الخائن في البلدة؟' }}</p>
+                </header>
+
+                <div class="space-y-6 md:space-y-8">
                     <div>
-                        <label class="block text-xs font-bold tracking-wider mb-1 text-[#00ff41]/70 uppercase">
-                            {{ t('nickname') }}
-                        </label>
-                        <input
-                            v-model="createForm.nickname"
-                            type="text"
-                            maxlength="20"
-                            required
-                            class="w-full bg-[#000a00] border border-[#00ff41]/30 px-4 py-2 text-[#33ff66] font-mono focus:border-[#00ff41] focus:outline-none focus:ring-1 focus:ring-[#00ff41]/50 transition-colors"
-                            :placeholder="t('nickname')"
-                        />
+                        <label class="block text-lg md:text-xl mb-1 md:mb-2 text-[#8b4513]">{{ t('nickname') }}:</label>
+                        <input v-model="createForm.nickname" type="text" class="western-input w-full text-2xl md:text-3xl py-1 md:py-2 text-center" :placeholder="t('nickname')" maxlength="20" required />
                     </div>
 
-                    <!-- Room Type Toggle -->
-                    <div>
-                        <label class="block text-xs font-bold tracking-wider mb-2 text-[#00ff41]/70 uppercase">
-                            {{ t('public') }} / {{ t('private') }}
-                        </label>
+                    <!-- Expandable Settings for Create -->
+                    <div v-if="showSettings" class="bg-[#d3bfa1]/50 border-2 border-dashed border-[#8b4513] p-4 text-right space-y-4">
+                        <div>
+                            <label class="block text-lg mb-1 text-[#4a2511]">{{ t('public') }} / {{ t('private') }}:</label>
+                            <div class="flex gap-2">
+                                <button type="button" @click="createForm.type = 'public'" class="western-btn-alt px-4 py-1 flex-1 text-xl border-2" :class="createForm.type === 'public' ? 'selected-opt' : ''">{{ t('public') }}</button>
+                                <button type="button" @click="createForm.type = 'private'" class="western-btn-alt px-4 py-1 flex-1 text-xl border-2" :class="createForm.type === 'private' ? 'selected-opt' : ''">{{ t('private') }}</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-lg mb-1 text-[#4a2511]">{{ t('language') }}:</label>
+                            <div class="flex gap-2">
+                                <button type="button" @click="createForm.language = 'ar'" class="western-btn-alt px-4 py-1 flex-1 text-xl border-2" :class="createForm.language === 'ar' ? 'selected-opt' : ''">{{ t('arabic') }}</button>
+                                <button type="button" @click="createForm.language = 'en'" class="western-btn-alt px-4 py-1 flex-1 text-xl border-2" :class="createForm.language === 'en' ? 'selected-opt' : ''">{{ t('english') }}</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-lg mb-1 text-[#4a2511]">{{ t('max_players') }}: <span class="text-[#8b2500]">{{ createForm.max_players }}</span></label>
+                            <input v-model.number="createForm.max_players" type="range" min="3" max="10" class="w-full accent-[#8b2500]" />
+                        </div>
+                        <div>
+                            <label class="block text-lg mb-1 text-[#4a2511]">{{ t('rounds') }}: <span class="text-[#8b2500]">{{ createForm.rounds_per_game }}</span></label>
+                            <input v-model.number="createForm.rounds_per_game" type="range" min="1" max="10" class="w-full accent-[#8b2500]" />
+                        </div>
+                    </div>
+
+                    <div class="pt-4 md:pt-6 border-t border-dashed border-[#8b4513] space-y-4 md:space-y-6">
                         <div class="flex gap-2">
-                            <button
-                                type="button"
-                                @click="createForm.type = 'public'"
-                                :class="[
-                                    'flex-1 py-2 text-sm font-bold tracking-wider border transition-all',
-                                    createForm.type === 'public'
-                                        ? 'border-[#00ff41] bg-[#00ff41]/15 text-[#00ff41]'
-                                        : 'border-[#00ff41]/20 bg-transparent text-[#00ff41]/40 hover:border-[#00ff41]/40',
-                                ]"
-                                style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
-                            >
-                                <!-- Globe SVG -->
-                                <span class="flex items-center justify-center gap-1">
-                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <line x1="2" y1="12" x2="22" y2="12" />
-                                        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z" />
-                                    </svg>
-                                    {{ t('public') }}
-                                </span>
+                            <button @click="showSettings ? submitCreate() : toggleSettings()" :disabled="createForm.processing" class="western-btn text-xl md:text-3xl px-6 md:px-8 py-2 md:py-3 flex-1 disabled:opacity-50">
+                                {{ showSettings ? t('create_room') : t('create_room') }}
                             </button>
-                            <button
-                                type="button"
-                                @click="createForm.type = 'private'"
-                                :class="[
-                                    'flex-1 py-2 text-sm font-bold tracking-wider border transition-all',
-                                    createForm.type === 'private'
-                                        ? 'border-[#00ff41] bg-[#00ff41]/15 text-[#00ff41]'
-                                        : 'border-[#00ff41]/20 bg-transparent text-[#00ff41]/40 hover:border-[#00ff41]/40',
-                                ]"
-                                style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
-                            >
-                                <!-- Lock SVG -->
-                                <span class="flex items-center justify-center gap-1">
-                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                                        <path d="M7 11V7a5 5 0 0110 0v4" />
-                                    </svg>
-                                    {{ t('private') }}
-                                </span>
-                            </button>
+                            <button v-if="showSettings" @click="toggleSettings" type="button" class="western-btn-alt px-4 text-xl border-2">{{ t('cancel') || 'إلغاء' }}</button>
                         </div>
-                    </div>
-
-                    <!-- Language Toggle -->
-                    <div>
-                        <label class="block text-xs font-bold tracking-wider mb-2 text-[#00ff41]/70 uppercase">
-                            {{ t('language') }}
-                        </label>
-                        <div class="flex gap-2">
-                            <button
-                                type="button"
-                                @click="createForm.language = 'en'"
-                                :class="[
-                                    'flex-1 py-2 text-sm font-bold tracking-wider border transition-all',
-                                    createForm.language === 'en'
-                                        ? 'border-[#00ff41] bg-[#00ff41]/15 text-[#00ff41]'
-                                        : 'border-[#00ff41]/20 bg-transparent text-[#00ff41]/40 hover:border-[#00ff41]/40',
-                                ]"
-                                style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
-                            >
-                                {{ t('english') }}
-                            </button>
-                            <button
-                                type="button"
-                                @click="createForm.language = 'ar'"
-                                :class="[
-                                    'flex-1 py-2 text-sm font-bold tracking-wider border transition-all',
-                                    createForm.language === 'ar'
-                                        ? 'border-[#00ff41] bg-[#00ff41]/15 text-[#00ff41]'
-                                        : 'border-[#00ff41]/20 bg-transparent text-[#00ff41]/40 hover:border-[#00ff41]/40',
-                                ]"
-                                style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
-                            >
-                                {{ t('arabic') }}
-                            </button>
+                        
+                        <div class="relative">
+                            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-[#8b4513]"></div></div>
+                            <div class="relative flex justify-center"><span class="bg-[#e8dcc4] px-3 md:px-4 text-base md:text-lg text-[#8b4513]">{{ t('or') || 'أو' }}</span></div>
                         </div>
-                    </div>
 
-                    <!-- Max Players Slider -->
-                    <div>
-                        <label class="block text-xs font-bold tracking-wider mb-1 text-[#00ff41]/70 uppercase">
-                            {{ t('max_players') }}: <span class="text-[#00ff41]">{{ createForm.max_players }}</span>
-                        </label>
-                        <input
-                            v-model.number="createForm.max_players"
-                            type="range"
-                            min="3"
-                            max="10"
-                            class="w-full accent-[#00ff41] h-2 bg-[#00ff41]/20 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div class="flex justify-between text-[10px] text-[#00ff41]/40 font-mono mt-1">
-                            <span>3</span>
-                            <span>10</span>
-                        </div>
+                        <form @submit.prevent="submitJoin" class="flex flex-col sm:flex-row gap-2">
+                            <input v-model="joinForm.code" type="text" class="western-input flex-1 text-xl md:text-2xl text-center uppercase tracking-widest" :placeholder="t('room_code')" maxlength="6" required />
+                            <button type="submit" :disabled="joinForm.processing" class="western-btn western-btn-alt text-xl md:text-2xl px-4 py-2 disabled:opacity-50">{{ t('join_room') }}</button>
+                        </form>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Rounds Slider -->
-                    <div>
-                        <label class="block text-xs font-bold tracking-wider mb-1 text-[#00ff41]/70 uppercase">
-                            {{ t('rounds') }}: <span class="text-[#00ff41]">{{ createForm.rounds_per_game }}</span>
-                        </label>
-                        <input
-                            v-model.number="createForm.rounds_per_game"
-                            type="range"
-                            min="1"
-                            max="10"
-                            class="w-full accent-[#00ff41] h-2 bg-[#00ff41]/20 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div class="flex justify-between text-[10px] text-[#00ff41]/40 font-mono mt-1">
-                            <span>1</span>
-                            <span>10</span>
-                        </div>
-                    </div>
+            <!-- Bounty Board (Public Rooms) -->
+            <div class="bounty-board flex-1 md:transform md:-rotate-1 flex flex-col h-[350px] sm:h-[400px] md:h-auto md:max-h-[600px] z-10">
+                <h2 class="text-xl md:text-3xl text-center text-[#d3bfa1] mb-4 md:mb-6 border-b border-dashed border-[#d3bfa1] pb-2 tracking-widest">{{ t('public_rooms') }}</h2>
+                
+                <div v-if="localRooms.length === 0" class="text-center text-[#d3bfa1]/50 text-xl py-8 font-sans">
+                    {{ t('no_rooms') }}
+                </div>
 
-                    <!-- Submit -->
-                    <button
-                        type="submit"
-                        :disabled="createForm.processing"
-                        class="w-full py-3 font-bold text-lg tracking-wider bg-[#00ff41]/20 border border-[#00ff41] text-[#00ff41] hover:bg-[#00ff41]/30 transition-all disabled:opacity-40"
-                        style="clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);"
+                <div v-else class="overflow-y-auto pr-1 md:pr-2 space-y-3 md:space-y-4 flex-1 scrollbar-western">
+                    <!-- Room items -->
+                    <div v-for="(room, index) in localRooms" :key="room.id" 
+                        class="bounty-item transition-transform"
+                        :class="room.players_count >= room.max_players ? 'opacity-70' : 'hover:scale-105 cursor-pointer'"
+                        @click="if(room.players_count < room.max_players) { joinForm.code = room.code; submitJoin(); }"
+                        :style="`transform: rotate(${index % 2 === 0 ? '1deg' : '-1deg'});`"
                     >
-                        {{ t('create_room') }}
-                    </button>
-                </form>
-            </div>
-        </transition>
-
-        <!-- Join Room Panel -->
-        <transition name="slide">
-            <div
-                v-if="activePanel === 'join'"
-                class="w-full max-w-md border border-[#00ff41]/30 bg-[#001200]/80 p-6 mb-6"
-                style="clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);"
-            >
-                <form @submit.prevent="submitJoin" class="space-y-5">
-                    <!-- Room Code -->
-                    <div>
-                        <label class="block text-xs font-bold tracking-wider mb-1 text-[#00ff41]/70 uppercase">
-                            {{ t('room_code') }}
-                        </label>
-                        <input
-                            v-model="joinForm.code"
-                            type="text"
-                            maxlength="6"
-                            required
-                            class="w-full bg-[#000a00] border border-[#00ff41]/30 px-4 py-2 text-[#33ff66] font-mono text-center text-2xl tracking-[0.5em] uppercase focus:border-[#00ff41] focus:outline-none focus:ring-1 focus:ring-[#00ff41]/50 transition-colors"
-                            placeholder="------"
-                        />
+                        <div v-if="room.players_count >= room.max_players" class="absolute top-0 right-0 w-full h-full bg-[#8b2500]/10 flex items-center justify-center z-10 pointer-events-none">
+                            <div class="border-2 md:border-4 border-[#8b2500] text-[#8b2500] text-xl md:text-3xl px-2 md:px-4 transform -rotate-12 bg-[#e8dcc4]/80">ممتلئة</div>
+                        </div>
+                        <div class="flex justify-between items-end mt-1 md:mt-2">
+                            <div>
+                                <div class="text-xl md:text-2xl text-[#4a2511] font-sans font-bold uppercase tracking-widest">{{ room.code }}</div>
+                                <div class="text-sm md:text-lg text-gray-700 mt-1">العدد: <span class="text-[#8b2500]">{{ room.players_count || 0 }} من {{ room.max_players || 6 }}</span></div>
+                            </div>
+                            <button :disabled="room.players_count >= room.max_players" class="western-btn text-lg md:text-xl px-3 md:px-4 py-1 disabled:bg-gray-600 disabled:border-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed">التحق</button>
+                        </div>
                     </div>
-
-                    <!-- Nickname -->
-                    <div>
-                        <label class="block text-xs font-bold tracking-wider mb-1 text-[#00ff41]/70 uppercase">
-                            {{ t('nickname') }}
-                        </label>
-                        <input
-                            v-model="joinForm.nickname"
-                            type="text"
-                            maxlength="20"
-                            required
-                            class="w-full bg-[#000a00] border border-[#00ff41]/30 px-4 py-2 text-[#33ff66] font-mono focus:border-[#00ff41] focus:outline-none focus:ring-1 focus:ring-[#00ff41]/50 transition-colors"
-                            :placeholder="t('nickname')"
-                        />
-                    </div>
-
-                    <!-- Submit -->
-                    <button
-                        type="submit"
-                        :disabled="joinForm.processing"
-                        class="w-full py-3 font-bold text-lg tracking-wider bg-[#00ff41]/20 border border-[#00ff41] text-[#00ff41] hover:bg-[#00ff41]/30 transition-all disabled:opacity-40"
-                        style="clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);"
-                    >
-                        {{ t('join_room') }}
-                    </button>
-                </form>
-            </div>
-        </transition>
-
-        <!-- Public Rooms -->
-        <div class="w-full max-w-md mt-4">
-            <h2 class="text-sm font-bold tracking-[0.3em] text-[#00ff41]/60 uppercase mb-3 flex items-center gap-2">
-                <!-- List SVG -->
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="8" y1="6" x2="21" y2="6" />
-                    <line x1="8" y1="12" x2="21" y2="12" />
-                    <line x1="8" y1="18" x2="21" y2="18" />
-                    <line x1="3" y1="6" x2="3.01" y2="6" />
-                    <line x1="3" y1="12" x2="3.01" y2="12" />
-                    <line x1="3" y1="18" x2="3.01" y2="18" />
-                </svg>
-                {{ t('public_rooms') }}
-            </h2>
-
-            <div v-if="localRooms.length === 0" class="text-center text-[#00ff41]/30 text-sm py-8 font-mono">
-                {{ t('no_rooms') }}
-            </div>
-
-            <div v-else class="space-y-2">
-                <button
-                    v-for="room in localRooms"
-                    :key="room.id"
-                    @click="activePanel = 'join'; joinForm.code = room.code"
-                    class="w-full flex items-center justify-between bg-[#001200]/60 border border-[#00ff41]/20 px-4 py-3 hover:border-[#00ff41]/50 transition-colors"
-                    style="clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);"
-                >
-                    <span class="font-mono tracking-wider text-[#00ff41]">{{ room.code }}</span>
-                    <span class="text-xs text-[#00ff41]/50">
-                        {{ room.players_count || 0 }}/{{ room.max_players || 6 }}
-                    </span>
-                </button>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-.slide-enter-active,
-.slide-leave-active {
-    transition: all 0.3s ease;
-}
-.slide-enter-from,
-.slide-leave-to {
-    opacity: 0;
-    transform: translateY(-10px);
-}
+.wood-panel { background-color: #8b5a2b; border: 4px solid #5c3a21; box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 5px 10px rgba(0,0,0,0.8); }
+@media (min-width: 768px) { .wood-panel { border-width: 8px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.8); } }
+.wanted-poster { background-color: #e8dcc4; border: 2px solid #b8a07e; box-shadow: inset 0 0 30px rgba(139, 69, 19, 0.2), 0 3px 10px rgba(0,0,0,0.5); background-image: radial-gradient(circle, transparent 20%, #e8dcc4 20%, #e8dcc4 80%, transparent 80%, transparent), radial-gradient(circle, transparent 20%, #e8dcc4 20%, #e8dcc4 80%, transparent 80%, transparent) 25px 25px; background-size: 50px 50px; }
+.wanted-text { color: #4a2511; text-shadow: 1px 1px 0px rgba(255,255,255,0.8); }
+.western-input { background: transparent; border: none; border-bottom: 2px dashed #8b4513; color: #4a2511; font-family: 'Lalezar', cursive; }
+@media (min-width: 768px) { .western-input { border-bottom-width: 3px; } }
+.western-input:focus { outline: none; border-bottom-style: solid; }
+.western-btn { background-color: #8b2500; color: #e8dcc4; border: 3px solid #4a1500; box-shadow: 2px 2px 0px #3a1000; transition: all 0.1s; cursor: pointer; }
+@media (min-width: 768px) { .western-btn { border-width: 4px; box-shadow: 3px 3px 0px #3a1000; } }
+.western-btn:active:not(:disabled) { box-shadow: 0px 0px 0px #3a1000; transform: translate(2px, 2px); }
+.western-btn-alt { background-color: #d3bfa1; color: #4a2511; border-color: #8b4513; cursor: pointer; transition: all 0.1s; }
+.western-btn-alt:active:not(:disabled) { transform: translate(2px, 2px); }
+.selected-opt { background-color: #8b4513 !important; color: #e8dcc4 !important; border-color: #4a1500 !important; box-shadow: inset 0 0 8px rgba(0,0,0,0.3); }
+
+.bounty-board { background-color: #5c3a21; border: 3px solid #3a2010; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); padding: 10px; }
+@media (min-width: 768px) { .bounty-board { border-width: 4px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); padding: 15px; } }
+.bounty-item { background-color: #e8dcc4; border: 2px dashed #8b4513; padding: 8px 12px; position: relative; }
+@media (min-width: 768px) { .bounty-item { padding: 10px 15px; } }
+.bounty-item::before { content: ''; position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; background-color: #333; border-radius: 50%; box-shadow: 1px 1px 2px rgba(255,255,255,0.3), inset -1px -1px 2px rgba(0,0,0,0.8); }
+@media (min-width: 768px) { .bounty-item::before { top: 5px; width: 8px; height: 8px; } }
+
+.scrollbar-western::-webkit-scrollbar { width: 6px; }
+@media (min-width: 768px) { .scrollbar-western::-webkit-scrollbar { width: 8px; } }
+.scrollbar-western::-webkit-scrollbar-track { background: #3a2010; }
+.scrollbar-western::-webkit-scrollbar-thumb { background: #8b5a2b; border-radius: 4px; }
 </style>
