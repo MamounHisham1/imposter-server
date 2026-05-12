@@ -10,12 +10,16 @@ import '../css/app.css';
 import en from './i18n/en.json';
 import ar from './i18n/ar.json';
 
+const savedLocale = localStorage.getItem('locale') || document.documentElement.lang || 'en';
 const i18n = createI18n({
     legacy: false,
-    locale: document.documentElement.lang || 'en',
+    locale: savedLocale,
     fallbackLocale: 'en',
     messages: { en, ar },
 });
+
+document.documentElement.lang = savedLocale;
+document.documentElement.dir = savedLocale === 'ar' ? 'rtl' : 'ltr';
 
 window.Pusher = Pusher;
 

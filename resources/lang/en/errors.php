@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'room_not_found' => "Ain't no room with that code, partner. Check the numbers and try again.",
+    'room_not_found' => "Ain't no room with that code, partner. Check the code and try again.",
     'room_gone' => "That room vanished like a ghost in the night!",
     'game_started' => "You're too late, partner — the showdown already started.",
     'room_full' => "This saloon's packed! Ain't no room for one more soul.",

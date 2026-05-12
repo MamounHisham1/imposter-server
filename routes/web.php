@@ -6,6 +6,13 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Models\Player;
 
+Route::post('/locale', function (Request $request) {
+    $locale = $request->validate(['locale' => 'required|in:en,ar'])['locale'];
+    session(['locale' => $locale]);
+    app()->setLocale($locale);
+    return response()->noContent();
+})->name('locale.set');
+
 Route::get('/', [RoomController::class, 'index'])->name('home');
 Route::inertia('/install', 'Install')->name('install');
 

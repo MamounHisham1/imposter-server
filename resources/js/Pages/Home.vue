@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import { useErrorToasts } from '../Composables/useErrorToasts';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { error: toastError } = useToast();
 useErrorToasts();
 
@@ -76,6 +76,22 @@ function toggleSettings() {
     showSettings.value = !showSettings.value;
 }
 
+function switchLocale() {
+    const next = locale.value === 'ar' ? 'en' : 'ar';
+    locale.value = next;
+    document.documentElement.lang = next;
+    document.documentElement.dir = next === 'ar' ? 'rtl' : 'ltr';
+    localStorage.setItem('locale', next);
+    fetch('/locale', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-XSRF-TOKEN': document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1],
+        },
+        body: JSON.stringify({ locale: next }),
+    });
+}
+
 function submitCreate() {
     createForm.post('/room', {
         preserveScroll: true,
@@ -103,6 +119,9 @@ function submitJoin() {
         
         <div class="text-center mb-4 md:mb-8 flex flex-col items-center">
             <img :src="'/logo.png'" alt="Traitor Logo" class="w-40 h-40 md:w-64 md:h-64 object-contain drop-shadow-2xl" />
+            <button @click="switchLocale" class="western-btn-alt mt-3 px-5 py-1 text-lg md:text-xl border-2 cursor-pointer tracking-wide">
+                {{ locale === 'ar' ? 'EN' : 'عربي' }}
+            </button>
         </div>
 
         <div class="wood-panel max-w-5xl w-full p-4 md:p-8 relative flex flex-col md:flex-row gap-6 md:gap-8">
@@ -189,14 +208,14 @@ function submitJoin() {
                         :style="`transform: rotate(${index % 2 === 0 ? '1deg' : '-1deg'});`"
                     >
                         <div v-if="room.players_count >= room.max_players" class="absolute top-0 right-0 w-full h-full bg-[#8b2500]/10 flex items-center justify-center z-10 pointer-events-none">
-                            <div class="border-2 md:border-4 border-[#8b2500] text-[#8b2500] text-xl md:text-3xl px-2 md:px-4 transform -rotate-12 bg-[#e8dcc4]/80">ممتلئة</div>
+                            <div class="border-2 md:border-4 border-[#8b2500] text-[#8b2500] text-xl md:text-3xl px-2 md:px-4 transform -rotate-12 bg-[#e8dcc4]/80">{{ t('full') }}</div>
                         </div>
                         <div class="flex justify-between items-end mt-1 md:mt-2">
                             <div>
                                 <div class="text-xl md:text-2xl text-[#4a2511] font-sans font-bold uppercase tracking-widest">{{ room.code }}</div>
-                                <div class="text-sm md:text-lg text-gray-700 mt-1">العدد: <span class="text-[#8b2500]">{{ room.players_count || 0 }} من {{ room.max_players || 6 }}</span></div>
+                                <div class="text-sm md:text-lg text-gray-700 mt-1">{{ t('player_count', { current: room.players_count || 0, max: room.max_players || 6 }) }}</div>
                             </div>
-                            <button :disabled="room.players_count >= room.max_players" class="western-btn text-lg md:text-xl px-3 md:px-4 py-1 disabled:bg-gray-600 disabled:border-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed">التحق</button>
+                            <button :disabled="room.players_count >= room.max_players" class="western-btn text-lg md:text-xl px-3 md:px-4 py-1 disabled:bg-gray-600 disabled:border-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed">{{ t('join') }}</button>
                         </div>
                     </div>
                 </div>

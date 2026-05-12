@@ -78,5 +78,8 @@
   "err_vote_submitted": "قد أدليت بصوتك من قبل.",
   "err_not_round_result": "ليس وقت الحكم بعد.",
   "err_no_active_round": "لا جولة قائمة في البلدة الآن.",
-  "err_player_not_in_room": "لست من أهل هذه الغرفة يا غريب."
+  "err_player_not_in_room": "لست من أهل هذه الغرفة يا غريب.",
+  "full": "ممتلئة",
+  "player_count": "العدد: {current} من {max}",
+  "join": "التحق"
 }

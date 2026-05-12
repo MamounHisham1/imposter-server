@@ -78,5 +78,8 @@
   "err_vote_submitted": "Vote already submitted for this round.",
   "err_not_round_result": "Not in round result state.",
   "err_no_active_round": "No active round.",
-  "err_player_not_in_room": "Player does not belong to this room."
+  "err_player_not_in_room": "Player does not belong to this room.",
+  "full": "FULL",
+  "player_count": "Players: {current} / {max}",
+  "join": "JOIN"
 }
