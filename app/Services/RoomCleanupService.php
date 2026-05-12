@@ -66,6 +66,46 @@ class RoomCleanupService
         }
     }
 
+    public function removeInactiveRooms(): int
+    {
+        $thresholds = [
+            'waiting' => now()->subMinutes(30),
+            'finished' => now()->subMinutes(10),
+            'playing' => now()->subMinutes(60),
+            'voting' => now()->subMinutes(60),
+            'round_result' => now()->subMinutes(60),
+        ];
+
+        $totalDeleted = 0;
+
+        foreach ($thresholds as $status => $threshold) {
+            $rooms = Room::where('status', $status)
+                ->where(function ($q) use ($threshold) {
+                    $q->where('last_activity_at', '<', $threshold)
+                        ->orWhereNull('last_activity_at');
+                })
+                ->get();
+
+            foreach ($rooms as $room) {
+                $roomId = $room->id;
+                $roomCode = $room->code;
+                $roomType = $room->type;
+
+                $room->delete();
+
+                if ($roomType === 'public') {
+                    broadcast(new RoomListEvent('removed', ['id' => $roomId, 'code' => $roomCode]));
+                }
+
+                broadcast(new GameEvent($roomId, 'room_deleted', ['code' => $roomCode]));
+
+                $totalDeleted++;
+            }
+        }
+
+        return $totalDeleted;
+    }
+
     private function removePlayersFromRoom(Room $room, array $playerIds, bool $broadcastGameEvents): CleanupResult
     {
         if (empty($playerIds)) {
