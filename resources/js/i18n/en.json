@@ -81,5 +81,11 @@
   "err_player_not_in_room": "Player does not belong to this room.",
   "full": "FULL",
   "player_count": "Players: {current} / {max}",
-  "join": "JOIN"
+  "join": "JOIN",
+  "imposter_fled": "The traitor fled!",
+  "imposter_fled_desc": "{name} couldn't take the heat and ran away!",
+  "game_aborted": "Game Aborted",
+  "game_aborted_desc": "Not enough players to continue the game.",
+  "player_disconnected": "{name} has left the game.",
+  "crew_wins_forfeit": "CREW WINS - TRAITOR FLED"
 }

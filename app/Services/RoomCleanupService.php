@@ -8,6 +8,7 @@ use App\Events\RoomListEvent;
 use App\Models\Player;
 use App\Models\Room;
 use Illuminate\Support\Facades\DB;
+use App\Services\GameService;
 
 class RoomCleanupService
 {
@@ -110,6 +111,35 @@ class RoomCleanupService
     {
         if (empty($playerIds)) {
             return new CleanupResult();
+        }
+
+        // For mid-game rooms, delegate to GameService::leaveRoom for each stale player
+        // so that proper imposter-fled / game-abort / hint-adjustment logic runs.
+        $isMidGame = in_array($room->status, ['playing', 'voting', 'round_result']);
+
+        if ($isMidGame && $broadcastGameEvents) {
+            $gameService = app(GameService::class);
+            foreach ($playerIds as $pid) {
+                try {
+                    $gameService->leaveRoom($pid);
+                } catch (\Exception $e) {
+                    // Player may have already been removed; skip silently
+                }
+            }
+
+            $room = $room->fresh();
+            if (!$room) {
+                return new CleanupResult(
+                    roomDeleted: true,
+                    removedPlayerCount: count($playerIds),
+                );
+            }
+
+            $remainingCount = $room->players()->count();
+
+            return new CleanupResult(
+                removedPlayerCount: count($playerIds),
+            );
         }
 
         $wasCreator = $room->players()

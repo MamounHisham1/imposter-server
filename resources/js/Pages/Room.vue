@@ -89,6 +89,9 @@ onMounted(() => {
                     case 'room_deleted':
                         router.visit('/');
                         break;
+                    case 'game_aborted':
+                        router.visit('/');
+                        break;
                 }
             });
     }
@@ -102,7 +105,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <GameLayout :room-code="room.code">
+    <GameLayout :room-code="room.code" :active-game="false">
         <Toast />
         <div class="min-h-screen flex items-center justify-center p-2 md:p-4">
             <div class="wood-panel max-w-3xl w-full p-4 md:p-12 relative">

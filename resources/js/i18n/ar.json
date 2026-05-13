@@ -81,5 +81,11 @@
   "err_player_not_in_room": "لست من أهل هذه الغرفة يا غريب.",
   "full": "ممتلئة",
   "player_count": "العدد: {current} من {max}",
-  "join": "التحق"
+  "join": "التحق",
+  "imposter_fled": "هرب الخائن!",
+  "imposter_fled_desc": "لم يتحمّل {name} الحرارة ولاذ بالفرار!",
+  "game_aborted": "أُلغيت اللعبة",
+  "game_aborted_desc": "لا يكفي عدد اللاعبين لاستمرار اللعبة.",
+  "player_disconnected": "غادر {name} اللعبة.",
+  "crew_wins_forfeit": "فاز الطاقم - هرب الخائن"
 }

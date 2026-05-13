@@ -34,6 +34,7 @@ const props = defineProps({
 const revealPhase = ref(false);
 const showScores = ref(false);
 const isAdvancing = ref(false);
+const alertMessage = ref('');
 
 const isImposterWin = computed(() => props.winner === 'imposter');
 const isTie = computed(() => props.winner === 'tie');
@@ -67,6 +68,26 @@ onMounted(() => {
                         break;
                     case 'game_over':
                         router.visit('/game/' + props.room.code + '/result');
+                        break;
+                    case 'imposter_fled':
+                        alertMessage.value = t('imposter_fled');
+                        if (e.is_game_over) {
+                            // Reload to show final game-over result
+                            setTimeout(() => {
+                                router.visit('/game/' + props.room.code + '/result');
+                            }, 2000);
+                        } else {
+                            // Show round result, then allow advancing
+                            setTimeout(() => {
+                                router.visit('/game/' + props.room.code + '/result');
+                            }, 2000);
+                        }
+                        break;
+                    case 'game_aborted':
+                        alertMessage.value = t('game_aborted');
+                        setTimeout(() => {
+                            router.visit('/');
+                        }, 2000);
                         break;
                 }
             });
@@ -103,8 +124,13 @@ function backToLobby() {
 </script>
 
 <template>
-    <GameLayout :room-code="room?.code">
+    <GameLayout :room-code="room?.code" :active-game="!is_game_over">
         <Toast />
+        <div v-if="alertMessage" class="fixed top-0 left-0 right-0 z-50 flex justify-center p-4">
+            <div class="bg-[#8b2500] text-[#e8dcc4] text-2xl md:text-3xl px-8 py-4 border-4 border-[#4a1500] shadow-lg wanted-text animate-bounce">
+                {{ alertMessage }}
+            </div>
+        </div>
         <div class="min-h-screen flex items-center justify-center p-2 md:p-4">
             <div class="wood-panel max-w-4xl w-full p-4 md:p-10 relative">
                 <!-- Nails -->

@@ -164,48 +164,211 @@ class GameService
     /**
      * Remove a player from a room. Transfer creator role if needed.
      * Delete the room if no players remain.
+     * Handle mid-game departures (imposter fled, game abort, hint/vote adjustments).
      */
     public function leaveRoom(int $playerId): array
     {
-        $player = Player::findOrFail($playerId);
-        $room = $player->room;
+        return DB::transaction(function () use ($playerId) {
+            $player = Player::findOrFail($playerId);
+            $room = $player->room;
 
-        $wasCreator = $player->id === $room->creator_id;
-        $roomCode = $room->code;
-        $roomType = $room->type;
-        $playerId = $player->id;
+            $wasCreator = $player->id === $room->creator_id;
+            $wasImposter = $player->is_imposter;
+            $playerNickname = $player->nickname;
+            $roomCode = $room->code;
+            $roomType = $room->type;
+            $roomId = $room->id;
+            $isMidGame = in_array($room->status, ['playing', 'voting', 'round_result']);
 
-        $player->delete();
-
-        $remainingPlayers = $room->fresh()->players()->orderBy('id')->get();
-
-        if ($remainingPlayers->isEmpty()) {
-            $room->delete();
-
-            if ($roomType === 'public') {
-                broadcast(new RoomListEvent('removed', ['id' => $room->id, 'code' => $roomCode]));
+            // Capture current round info before deleting player
+            $currentRound = null;
+            if ($isMidGame && $room->current_round > 0) {
+                $currentRound = $room->rounds()
+                    ->where('round_number', $room->current_round)
+                    ->first();
             }
 
-            broadcast(new GameEvent($room->id, 'room_deleted', [
-                'code' => $roomCode,
-            ]));
+            // Remove the player's hints and votes for the current round
+            if ($currentRound) {
+                Hint::where('round_id', $currentRound->id)
+                    ->where('player_id', $playerId)
+                    ->delete();
+                Vote::where('round_id', $currentRound->id)
+                    ->where('voter_id', $playerId)
+                    ->delete();
+            }
 
-            return ['deleted' => true, 'code' => $roomCode];
-        }
+            $player->delete();
 
-        if ($wasCreator) {
-            $newCreator = $remainingPlayers->first();
-            $room->update(['creator_id' => $newCreator->id]);
+            $remainingPlayers = $room->fresh()->players()->orderBy('id')->get();
+            $remainingCount = $remainingPlayers->count();
 
-            broadcast(new GameEvent($room->id, 'creator_changed', [
+            // --- No players left: delete room ---
+            if ($remainingCount === 0) {
+                $room->delete();
+
+                if ($roomType === 'public') {
+                    broadcast(new RoomListEvent('removed', ['id' => $roomId, 'code' => $roomCode]));
+                }
+
+                broadcast(new GameEvent($roomId, 'room_deleted', [
+                    'code' => $roomCode,
+                ]));
+
+                return ['deleted' => true, 'code' => $roomCode];
+            }
+
+            // --- Transfer creator role if needed ---
+            if ($wasCreator) {
+                $newCreator = $remainingPlayers->first();
+                $room->update(['creator_id' => $newCreator->id]);
+
+                broadcast(new GameEvent($roomId, 'creator_changed', [
+                    'room' => $this->formatRoom($room->fresh()),
+                    'new_creator_id' => $newCreator->id,
+                ]));
+            }
+
+            // --- Mid-game handling ---
+            if ($isMidGame) {
+                // Not enough players to continue: abort the game
+                if ($remainingCount < 3) {
+                    return $this->abortGame($room, $roomCode, $roomType, $roomId, $playerId, $playerNickname);
+                }
+
+                // Imposter left: resolve round as "imposter fled"
+                if ($wasImposter) {
+                    return $this->handleImposterFled(
+                        $room, $currentRound, $playerId, $playerNickname,
+                        $roomCode, $roomType, $roomId, $remainingPlayers
+                    );
+                }
+
+                // Regular crew player left mid-game: adjust game state
+                if ($room->status === 'playing' && $currentRound) {
+                    $this->adjustHintOrderForDeparture($room, $currentRound, $playerId);
+                }
+
+                if ($room->status === 'voting' && $currentRound) {
+                    $this->checkAndResolveVotesIfComplete($room, $currentRound);
+                }
+            }
+
+            $room->touchActivity();
+
+            broadcast(new GameEvent($roomId, 'player_left', [
                 'room' => $this->formatRoom($room->fresh()),
-                'new_creator_id' => $newCreator->id,
+                'player_id' => $playerId,
+            ]));
+
+            if ($roomType === 'public') {
+                broadcast(new RoomListEvent('updated', $this->formatRoom($room->fresh())));
+            }
+
+            return ['deleted' => false, 'code' => $roomCode];
+        });
+    }
+
+    /**
+     * Abort the game entirely because not enough players remain.
+     */
+    private function abortGame(Room $room, string $roomCode, string $roomType, int $roomId, int $playerId, string $playerNickname): array
+    {
+        $room->update(['status' => 'finished']);
+
+        broadcast(new GameEvent($roomId, 'game_aborted', [
+            'room' => $this->formatRoom($room->fresh()),
+            'reason' => 'not_enough_players',
+            'left_player_id' => $playerId,
+            'left_player_nickname' => $playerNickname,
+        ]));
+
+        broadcast(new GameEvent($roomId, 'player_left', [
+            'room' => $this->formatRoom($room->fresh()),
+            'player_id' => $playerId,
+        ]));
+
+        if ($roomType === 'public') {
+            broadcast(new RoomListEvent('removed', ['id' => $roomId, 'code' => $roomCode]));
+        }
+
+        return ['deleted' => false, 'code' => $roomCode, 'game_aborted' => true];
+    }
+
+    /**
+     * Handle the case where the imposter leaves mid-game.
+     * Resolve the current round as "imposter fled" (crew wins).
+     * Advance to next round or end game.
+     */
+    private function handleImposterFled(
+        Room $room,
+        ?Round $currentRound,
+        int $playerId,
+        string $playerNickname,
+        string $roomCode,
+        string $roomType,
+        int $roomId,
+        $remainingPlayers
+    ): array {
+        // Score: all remaining crew players get 2 points (imposter fled)
+        foreach ($remainingPlayers as $p) {
+            $p->increment('score', 2);
+        }
+
+        // Save round results if there is an active round
+        if ($currentRound) {
+            $roundResults = [
+                'round_number' => $currentRound->round_number,
+                'real_word' => $currentRound->real_word,
+                'imposter_hint' => $currentRound->imposter_hint,
+                'imposter' => [
+                    'id' => $playerId,
+                    'nickname' => $playerNickname,
+                    'is_imposter' => true,
+                ],
+                'vote_tally' => [],
+                'imposter_caught' => false,
+                'is_tie' => false,
+                'winner' => 'crew',
+                'imposter_fled' => true,
+            ];
+
+            $currentRound->update([
+                'winner' => 'crew',
+                'imposter_caught' => false,
+                'vote_tally' => [],
+            ]);
+        }
+
+        // Check if game is over
+        $isGameOver = $currentRound
+            ? $currentRound->round_number >= $room->rounds_per_game
+            : true;
+
+        if ($isGameOver) {
+            $room->update(['status' => 'finished']);
+
+            $players = $room->players()->orderByDesc('score')->get();
+
+            broadcast(new GameEvent($roomId, 'imposter_fled', [
+                'room' => $this->formatRoom($room->fresh()),
+                'round_results' => $roundResults ?? null,
+                'final_scores' => $this->formatPlayers($players),
+                'is_game_over' => true,
+                'fled_player' => ['id' => $playerId, 'nickname' => $playerNickname],
+            ]));
+        } else {
+            $room->update(['status' => 'round_result']);
+
+            broadcast(new GameEvent($roomId, 'imposter_fled', [
+                'room' => $this->formatRoom($room->fresh()),
+                'round_results' => $roundResults ?? null,
+                'is_game_over' => false,
+                'fled_player' => ['id' => $playerId, 'nickname' => $playerNickname],
             ]));
         }
 
-        $room->touchActivity();
-
-        broadcast(new GameEvent($room->id, 'player_left', [
+        broadcast(new GameEvent($roomId, 'player_left', [
             'room' => $this->formatRoom($room->fresh()),
             'player_id' => $playerId,
         ]));
@@ -214,7 +377,77 @@ class GameService
             broadcast(new RoomListEvent('updated', $this->formatRoom($room->fresh())));
         }
 
-        return ['deleted' => false, 'code' => $roomCode];
+        return ['deleted' => false, 'code' => $roomCode, 'imposter_fled' => true];
+    }
+
+    /**
+     * Adjust hint order and state when a crew player leaves during the hint phase.
+     */
+    private function adjustHintOrderForDeparture(Room $room, Round $currentRound, int $playerId): void
+    {
+        $hintOrder = $currentRound->hint_order ?? [];
+
+        // Remove the departed player from the hint order
+        $newHintOrder = array_values(array_filter($hintOrder, fn ($id) => $id !== $playerId));
+
+        // Check how many hints are already submitted (by remaining players)
+        $submittedCount = $currentRound->hints()->count();
+        $totalNeeded = count($newHintOrder);
+
+        $allHintsSubmitted = $totalNeeded > 0 && $submittedCount >= $totalNeeded;
+
+        $nextPlayerId = null;
+        if (!$allHintsSubmitted && count($newHintOrder) > 0) {
+            // The submitted count maps to the next index in the new order
+            $nextIdx = min($submittedCount, count($newHintOrder) - 1);
+            $nextPlayerId = $newHintOrder[$nextIdx] ?? null;
+
+            // Verify the next player hasn't already submitted
+            $alreadySubmitted = $currentRound->hints()
+                ->where('player_id', $nextPlayerId)
+                ->exists();
+            if ($alreadySubmitted) {
+                // Find the first player in order who hasn't submitted yet
+                $submittedPlayerIds = $currentRound->hints()->pluck('player_id')->toArray();
+                foreach ($newHintOrder as $pid) {
+                    if (!in_array($pid, $submittedPlayerIds)) {
+                        $nextPlayerId = $pid;
+                        break;
+                    }
+                }
+            }
+        }
+
+        $currentRound->update(['hint_order' => $newHintOrder]);
+
+        if ($allHintsSubmitted) {
+            broadcast(new GameEvent($room->id, 'hints_complete', [
+                'room' => $this->formatRoom($room->fresh()),
+                'round' => $this->formatRound($currentRound->fresh()),
+                'hints' => $this->formatHints($currentRound->fresh()->hints),
+                'creator_id' => $room->creator_id,
+            ]));
+        } else {
+            broadcast(new GameEvent($room->id, 'hint_order_updated', [
+                'room' => $this->formatRoom($room->fresh()),
+                'hint_order' => $newHintOrder,
+                'current_turn_player_id' => $nextPlayerId,
+                'hints' => $this->formatHints($currentRound->fresh()->hints),
+            ]));
+        }
+    }
+
+    /**
+     * Check if all remaining players have voted; resolve immediately if so.
+     */
+    private function checkAndResolveVotesIfComplete(Room $room, Round $currentRound): void
+    {
+        $remainingCount = $room->players()->count();
+        $voteCount = $currentRound->votes()->count();
+
+        if ($voteCount >= $remainingCount) {
+            $this->resolveVotes($room->id);
+        }
     }
 
     /**
@@ -813,6 +1046,13 @@ class GameService
         if ($room->status === 'finished') {
             $lastRound = $room->rounds()->orderByDesc('round_number')->first();
             $imposter = $room->players()->where('is_imposter', true)->first();
+
+            // Fallback: if the imposter was deleted (fled), reconstruct from round data
+            if (!$imposter && $lastRound) {
+                $imposterPlayer = Player::find($lastRound->imposter_id);
+                $imposter = $imposterPlayer;
+            }
+
             $allHints = $lastRound ? $lastRound->hints : collect();
             $allVotes = $lastRound ? $lastRound->votes : collect();
 
@@ -825,8 +1065,10 @@ class GameService
                 'target_id' => $vote->target_id,
             ])->toArray();
 
-            // Determine winner from votes
-            if ($allVotes->isNotEmpty()) {
+            // Use the round's stored winner if available (set during imposter_fled or normal resolve)
+            if ($lastRound && $lastRound->winner) {
+                $state['winner'] = $lastRound->winner;
+            } elseif ($allVotes->isNotEmpty()) {
                 $tally = $allVotes->groupBy('target_id')->map->count();
                 $maxVotes = $tally->max();
                 $topVoted = $tally->filter(fn ($count) => $count === $maxVotes);

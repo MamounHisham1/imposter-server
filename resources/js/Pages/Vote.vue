@@ -24,6 +24,7 @@ const props = defineProps({
 
 const selectedPlayerId = ref(null);
 const hasVoted = ref(false);
+const alertMessage = ref('');
 
 function selectPlayer(playerId) {
     if (hasVoted.value) return;
@@ -65,6 +66,24 @@ onMounted(() => {
                     case 'round_result':
                         router.visit('/game/' + props.room.code + '/result');
                         break;
+                    case 'imposter_fled':
+                        alertMessage.value = t('imposter_fled');
+                        setTimeout(() => {
+                            router.visit('/game/' + props.room.code + '/result');
+                        }, 2000);
+                        break;
+                    case 'game_aborted':
+                        alertMessage.value = t('game_aborted');
+                        setTimeout(() => {
+                            router.visit('/');
+                        }, 2000);
+                        break;
+                    case 'player_left':
+                        // Remove the departed player from selectable options
+                        if (e.player_id && selectedPlayerId.value === e.player_id) {
+                            selectedPlayerId.value = null;
+                        }
+                        break;
                 }
             });
     }
@@ -78,8 +97,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <GameLayout :room-code="room.code">
+    <GameLayout :room-code="room.code" :active-game="true">
         <Toast />
+        <div v-if="alertMessage" class="fixed top-0 left-0 right-0 z-50 flex justify-center p-4">
+            <div class="bg-[#8b2500] text-[#e8dcc4] text-2xl md:text-3xl px-8 py-4 border-4 border-[#4a1500] shadow-lg wanted-text animate-bounce">
+                {{ alertMessage }}
+            </div>
+        </div>
         <div class="min-h-screen flex items-center justify-center p-2 md:p-4">
             <div class="wood-panel max-w-4xl w-full p-4 md:p-10 relative">
                 <!-- Nails -->

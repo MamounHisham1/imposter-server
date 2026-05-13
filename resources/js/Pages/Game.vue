@@ -51,24 +51,37 @@ const hintInput = ref('');
 const localRound = ref(props.round || null);
 const localWord = ref(props.word || null);
 const localHintForImposter = ref(props.hint_for_imposter || null);
+const alertMessage = ref('');
 
 const isCreator = computed(() => {
     return props.player?.id === props.room?.creator_id;
 });
 
 const wordLabel = computed(() => {
-    return localPlayer.value?.is_imposter ? t('your_hint') : t('your_word');
+    if (localPlayer.value?.is_imposter) {
+        const myTurnIndex = localHintOrder.value.indexOf(props.player?.id);
+        return myTurnIndex === 0 ? t('your_hint') : t('your_word');
+    }
+    return t('your_word');
 });
 
 const wordValue = computed(() => {
     if (localPlayer.value?.is_imposter) {
-        return localHintForImposter.value || '???';
+        const myTurnIndex = localHintOrder.value.indexOf(props.player?.id);
+        if (myTurnIndex === 0) {
+            return localHintForImposter.value || '???';
+        }
+        return '???';
     }
     return localWord.value || '';
 });
 
 const hasSubmittedHint = computed(() => {
     return localHints.value.some((h) => h.player_id === props.player?.id);
+});
+
+const sortedHints = computed(() => {
+    return [...localHints.value].reverse();
 });
 
 const isMyTurn = computed(() => {
@@ -171,6 +184,33 @@ onMounted(() => {
                     case 'voting_started':
                         router.visit('/game/' + props.room.code + '/vote');
                         break;
+                    case 'imposter_fled':
+                        alertMessage.value = t('imposter_fled');
+                        setTimeout(() => {
+                            if (e.is_game_over) {
+                                router.visit('/game/' + props.room.code + '/result');
+                            } else {
+                                router.visit('/game/' + props.room.code + '/result');
+                            }
+                        }, 2000);
+                        break;
+                    case 'game_aborted':
+                        alertMessage.value = t('game_aborted');
+                        setTimeout(() => {
+                            router.visit('/');
+                        }, 2000);
+                        break;
+                    case 'hint_order_updated':
+                        if (e.hint_order) localHintOrder.value = e.hint_order;
+                        if (e.current_turn_player_id !== undefined) localCurrentTurnPlayerId.value = e.current_turn_player_id;
+                        if (e.hints) localHints.value = e.hints;
+                        break;
+                    case 'player_left':
+                        if (e.room) {
+                            // Update hint order to reflect departed player
+                            localHintOrder.value = localHintOrder.value.filter(id => id !== e.player_id);
+                        }
+                        break;
                 }
             });
     }
@@ -184,8 +224,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <GameLayout :room-code="room?.code">
+    <GameLayout :room-code="room?.code" :active-game="true">
         <Toast />
+        <div v-if="alertMessage" class="fixed top-0 left-0 right-0 z-50 flex justify-center p-4">
+            <div class="bg-[#8b2500] text-[#e8dcc4] text-2xl md:text-3xl px-8 py-4 border-4 border-[#4a1500] shadow-lg wanted-text animate-bounce">
+                {{ alertMessage }}
+            </div>
+        </div>
         <div class="min-h-screen flex items-center justify-center p-2 md:p-4">
             <div class="wood-panel max-w-3xl w-full p-4 md:p-12 relative">
                 <!-- Nails -->
@@ -196,14 +241,12 @@ onUnmounted(() => {
 
                 <div class="wanted-poster p-4 md:p-12 md:transform md:rotate-1">
                     <header class="text-center border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-4 md:mb-8">
-                        <h2 class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('round') }} {{ localRound?.round_number || round?.round_number || 1 }}</h2>
-                        <h1 class="text-5xl md:text-7xl wanted-text uppercase">{{ t('game') }}</h1>
+                        <h2 class="text-xl md:text-3xl tracking-widest text-[#8b4513]">{{ t('round') }} {{ localRound?.round_number || round?.round_number || 1 }}</h2>
                     </header>
 
                     <!-- The Word Display -->
                     <div class="text-center mb-6 md:mb-10">
-                        <p class="text-xl md:text-3xl mb-2 md:mb-4 text-gray-700">{{ wordLabel }}:</p>
-                        <div class="text-4xl md:text-6xl wanted-text my-4 md:my-6 py-4 md:py-6 border-y border-dashed border-[#8b4513]" :class="localPlayer?.is_imposter ? 'text-[#8b2500]' : ''">
+                        <div class="text-4xl md:text-6xl wanted-text my-4 md:my-6 py-4 md:py-6" :class="localPlayer?.is_imposter ? 'text-[#8b2500]' : ''">
                             {{ wordValue }}
                         </div>
                         <p v-if="localPlayer?.is_imposter" class="text-base md:text-2xl leading-relaxed text-[#8b2500]">{{ t('you_are_imposter') }}</p>
@@ -215,12 +258,12 @@ onUnmounted(() => {
                         <h3 class="text-2xl md:text-3xl wanted-text mb-4 text-center">{{ t('hints') }}</h3>
                         
                         <!-- List of Hints -->
-                        <div v-if="localHints.length > 0" class="space-y-3 mb-6 max-h-48 overflow-y-auto pr-2 scrollbar-western">
-                            <div v-for="hint in localHints" :key="hint.player_id" class="flex items-center gap-3 bg-[#d3bfa1] p-3 border border-[#8b4513] transform rotate-1">
+                        <TransitionGroup v-if="localHints.length > 0" name="hint-slide" tag="div" class="space-y-3 mb-6 max-h-48 overflow-y-auto pr-2 scrollbar-western">
+                            <div v-for="hint in sortedHints" :key="hint.id" class="flex items-center gap-3 bg-[#d3bfa1] p-3 border border-[#8b4513] transform rotate-1">
                                 <span class="text-lg md:text-xl font-bold text-[#8b2500] w-1/4 truncate">{{ hint.player_nickname || hint.nickname }}</span>
                                 <span class="text-xl md:text-2xl flex-1 text-[#4a2511] border-r-2 border-dashed border-[#8b4513] pr-3">{{ hint.content || hint.hint }}</span>
                             </div>
-                        </div>
+                        </TransitionGroup>
 
                         <!-- Turn Indicators -->
                         <div class="flex flex-wrap justify-center gap-2 md:gap-4 mt-4">
@@ -285,4 +328,10 @@ onUnmounted(() => {
 @media (min-width: 768px) { .scrollbar-western::-webkit-scrollbar { width: 8px; } }
 .scrollbar-western::-webkit-scrollbar-track { background: transparent; }
 .scrollbar-western::-webkit-scrollbar-thumb { background: #8b4513; border-radius: 4px; }
+
+.hint-slide-enter-active { transition: all 0.3s ease-out; }
+.hint-slide-leave-active { transition: all 0.2s ease-out; }
+.hint-slide-enter-from { opacity: 0; transform: translateX(40px) rotate(0deg); }
+.hint-slide-leave-to { opacity: 0; transform: translateX(-20px); }
+.hint-slide-move { transition: transform 0.3s ease-out; }
 </style>
