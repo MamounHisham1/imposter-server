@@ -1,5 +1,5 @@
-const CACHE_NAME = 'traitor-v1';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'traitor-v2';
+const PRECACHE_URLS = [
   '/',
   '/manifest.json',
   '/logo.png',
@@ -11,21 +11,26 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  // Delete old caches so stale hashed assets are removed
+  event.waitUntil(
+    caches.keys().then((names) =>
+      Promise.all(
+        names
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      )
+    ).then(() => clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Only handle same-origin navigation and static asset requests.
-  // Skip HMR, WebSocket, hot-update, API calls, and cross-origin requests.
   if (
     url.origin !== location.origin ||
     url.pathname.startsWith('/api') ||
@@ -35,25 +40,36 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/@') ||
     event.request.mode === 'websocket'
   ) {
-    return; // Let the browser handle these normally
+    return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+  // Navigation: network-first so HTML always fresh (brings new Vite hashes)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match('/'))
+    );
+    return;
+  }
 
-      return fetch(event.request).catch(() => {
-        // If it's a navigation request and fetch fails, serve the cached root page
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-        // For other requests, return a simple offline response
-        return new Response('Offline', {
-          status: 503,
-          statusText: 'Service Unavailable'
-        });
+  // Build assets (/build/assets/*): network-only — Vite hashes handle cache busting
+  if (url.pathname.startsWith('/build/assets/')) {
+    return;
+  }
+
+  // Other static assets (images, manifest, etc.): cache-first
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
       });
     })
   );
