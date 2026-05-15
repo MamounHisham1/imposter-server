@@ -1,4 +1,5 @@
-const CACHE_NAME = 'traitor-v3';
+const CACHE_NAME = 'traitor-v4';
+
 const PRECACHE_URLS = [
   '/',
   '/manifest.json',
@@ -8,6 +9,8 @@ const PRECACHE_URLS = [
   '/favicon.ico'
 ];
 
+const STATIC_PATTERN = /\.(png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|eot|json)(\?.*)?$/;
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -16,7 +19,6 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  // Delete old caches so stale hashed assets are removed
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(
@@ -29,51 +31,33 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
+  if (url.origin !== location.origin) return;
 
-  // Only handle GET requests — POST/PUT/DELETE are not cacheable
-  if (event.request.method !== 'GET') {
-    return;
-  }
-
-  if (
-    url.origin !== location.origin ||
-    url.pathname.startsWith('/api') ||
-    url.pathname.startsWith('/broadcasting') ||
-    url.pathname.includes('hot-update') ||
-    url.pathname.includes('__vite') ||
-    url.pathname.startsWith('/@') ||
-    event.request.mode === 'websocket'
-  ) {
-    return;
-  }
-
-  // Navigation: network-first so HTML always fresh (brings new Vite hashes)
+  // Navigation: network-first with offline fallback
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match('/'))
+      fetch(event.request).catch(() => caches.match('/'))
     );
     return;
   }
 
-  // Build assets (/build/assets/*): network-only — Vite hashes handle cache busting
-  if (url.pathname.startsWith('/build/assets/')) {
-    return;
-  }
+  // Build assets: skip entirely (Vite hashes handle cache busting)
+  if (url.pathname.startsWith('/build/')) return;
 
-  // Other static assets (images, manifest, etc.): cache-first
+  // Only cache known static file types
+  if (!STATIC_PATTERN.test(url.pathname)) return;
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
         return response;
       });
     })
