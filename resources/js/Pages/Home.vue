@@ -166,7 +166,7 @@ function submitJoin() {
                         </div>
                         <div>
                             <label class="block text-lg mb-1 text-[#4a2511]">{{ t('rounds') }}: <span class="text-[#8b2500]">{{ createForm.rounds_per_game }}</span></label>
-                            <input v-model.number="createForm.rounds_per_game" type="range" min="1" max="10" class="w-full accent-[#8b2500]" />
+                            <input v-model.number="createForm.rounds_per_game" type="range" min="1" max="5" class="w-full accent-[#8b2500]" />
                         </div>
                     </div>
 

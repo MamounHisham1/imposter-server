@@ -25,7 +25,7 @@ class RoomController extends Controller
         $validated = $request->validate([
             'nickname' => 'required|string|max:20',
             'type' => 'required|in:public,private',
-            'max_players' => 'required|integer|min:3|max:8',
+            'max_players' => 'required|integer|min:3|max:10',
             'rounds_per_game' => 'required|integer|min:1|max:5',
             'language' => 'required|in:en,ar',
         ]);
