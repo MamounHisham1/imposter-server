@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ config('app.name', 'Imposter') }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Lalezar&display=swap" rel="stylesheet">
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/logo-192.png" />
     <link rel="apple-touch-startup-image" href="/splash-screen.png" />
     <link rel="manifest" href="/manifest.json" />
