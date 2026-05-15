@@ -1,4 +1,4 @@
-const CACHE_NAME = 'traitor-v2';
+const CACHE_NAME = 'traitor-v3';
 const PRECACHE_URLS = [
   '/',
   '/manifest.json',
@@ -30,6 +30,11 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+
+  // Only handle GET requests — POST/PUT/DELETE are not cacheable
+  if (event.request.method !== 'GET') {
+    return;
+  }
 
   if (
     url.origin !== location.origin ||
