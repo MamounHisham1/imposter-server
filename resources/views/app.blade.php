@@ -7,8 +7,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Lalezar&display=swap" rel="stylesheet">
     <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/logo-192.png" />
+    <link rel="apple-touch-startup-image" href="/splash-screen.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#8b2500" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @inertiaHead
 </head>
