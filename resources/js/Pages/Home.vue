@@ -75,7 +75,7 @@ onUnmounted(() => {
 });
 
 const createForm = useForm({
-    nickname: '',
+    nickname: localStorage.getItem('playerNickname') || '',
     type: 'public',
     max_players: 6,
     rounds_per_game: 3,
@@ -85,16 +85,18 @@ const createForm = useForm({
 
 const joinForm = useForm({
     code: '',
-    nickname: '',
+    nickname: localStorage.getItem('playerNickname') || '',
     avatar: {},
 });
 
-// Sync nicknames
+// Sync nicknames and persist
 watch(() => createForm.nickname, (val) => {
     joinForm.nickname = val;
+    localStorage.setItem('playerNickname', val);
 });
 watch(() => joinForm.nickname, (val) => {
     createForm.nickname = val;
+    localStorage.setItem('playerNickname', val);
 });
 
 function toggleSettings() {
