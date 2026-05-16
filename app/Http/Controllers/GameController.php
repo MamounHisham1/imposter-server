@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Services\GameService;
-use Inertia\Inertia;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 class GameController extends Controller
 {
@@ -17,7 +18,7 @@ class GameController extends Controller
         $roomId = session('room_id');
         $playerId = session('player_id');
 
-        if (!$roomId || !$playerId) {
+        if (! $roomId || ! $playerId) {
             return redirect()->route('home');
         }
 
@@ -25,6 +26,7 @@ class GameController extends Controller
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
             session()->forget(['player_id', 'room_id']);
+
             return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
         }
 
@@ -56,22 +58,22 @@ class GameController extends Controller
             'content' => 'required|string|max:100',
         ]);
 
-        if (!$playerId || !$roomId) {
+        if (! $playerId || ! $roomId) {
             return redirect()->route('home');
         }
 
         try {
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
 
         $roundId = $state['current_round']['id'] ?? null;
 
-        if (!$roundId) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+        if (! $roundId) {
+            throw ValidationException::withMessages([
                 'error' => __('errors.no_active_round'),
             ]);
         }
@@ -83,7 +85,43 @@ class GameController extends Controller
                 $validated['content']
             );
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return back();
+    }
+
+    public function skipHint(Request $request, string $code)
+    {
+        $playerId = $request->input('player_id') ?? session('player_id');
+        $roomId = $request->input('room_id') ?? session('room_id');
+
+        if (! $playerId || ! $roomId) {
+            return redirect()->route('home');
+        }
+
+        try {
+            $state = $this->gameService->getGameState($roomId, $playerId);
+        } catch (\Exception $e) {
+            throw ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $roundId = $state['current_round']['id'] ?? null;
+
+        if (! $roundId) {
+            throw ValidationException::withMessages([
+                'error' => __('errors.no_active_round'),
+            ]);
+        }
+
+        try {
+            $this->gameService->skipHint($roundId, $playerId);
+        } catch (\Exception $e) {
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
@@ -96,14 +134,14 @@ class GameController extends Controller
         $playerId = $request->input('player_id') ?? session('player_id');
         $roomId = $request->input('room_id') ?? session('room_id');
 
-        if (!$playerId || !$roomId) {
+        if (! $playerId || ! $roomId) {
             return redirect()->route('home');
         }
 
         try {
             $this->gameService->advanceRound($roomId, $playerId);
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
@@ -116,14 +154,38 @@ class GameController extends Controller
         $playerId = $request->input('player_id') ?? session('player_id');
         $roomId = $request->input('room_id') ?? session('room_id');
 
-        if (!$playerId || !$roomId) {
+        if (! $playerId || ! $roomId) {
             return redirect()->route('home');
         }
 
         try {
             $this->gameService->startVoting($roomId, $playerId);
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return back();
+    }
+
+    public function phaseVote(Request $request, string $code)
+    {
+        $playerId = $request->input('player_id') ?? session('player_id');
+        $roomId = $request->input('room_id') ?? session('room_id');
+
+        $validated = $request->validate([
+            'choice' => 'required|in:vote,continue',
+        ]);
+
+        if (! $playerId || ! $roomId) {
+            return redirect()->route('home');
+        }
+
+        try {
+            $this->gameService->submitPhaseVote($roomId, $playerId, $validated['choice']);
+        } catch (\Exception $e) {
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
@@ -136,7 +198,7 @@ class GameController extends Controller
         $roomId = session('room_id');
         $playerId = session('player_id');
 
-        if (!$roomId || !$playerId) {
+        if (! $roomId || ! $playerId) {
             return redirect()->route('home');
         }
 
@@ -144,6 +206,7 @@ class GameController extends Controller
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
             session()->forget(['player_id', 'room_id']);
+
             return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
         }
 
@@ -167,22 +230,22 @@ class GameController extends Controller
             'target_id' => 'required|integer|exists:players,id',
         ]);
 
-        if (!$playerId || !$roomId) {
+        if (! $playerId || ! $roomId) {
             return redirect()->route('home');
         }
 
         try {
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
 
         $roundId = $state['current_round']['id'] ?? null;
 
-        if (!$roundId) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+        if (! $roundId) {
+            throw ValidationException::withMessages([
                 'error' => __('errors.no_active_round'),
             ]);
         }
@@ -190,7 +253,26 @@ class GameController extends Controller
         try {
             $this->gameService->submitVote($roundId, $playerId, $validated['target_id']);
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return back();
+    }
+
+    public function timeoutVote(Request $request, string $code)
+    {
+        $roomId = $request->input('room_id') ?? session('room_id');
+
+        if (! $roomId) {
+            return redirect()->route('home');
+        }
+
+        try {
+            $this->gameService->timeoutVotes($roomId);
+        } catch (\Exception $e) {
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
@@ -203,7 +285,7 @@ class GameController extends Controller
         $roomId = session('room_id');
         $playerId = session('player_id');
 
-        if (!$roomId || !$playerId) {
+        if (! $roomId || ! $playerId) {
             return redirect()->route('home');
         }
 
@@ -211,6 +293,7 @@ class GameController extends Controller
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
             session()->forget(['player_id', 'room_id']);
+
             return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
         }
 
@@ -222,14 +305,14 @@ class GameController extends Controller
         $playerId = $request->input('player_id') ?? session('player_id');
         $roomId = $request->input('room_id') ?? session('room_id');
 
-        if (!$playerId || !$roomId) {
+        if (! $playerId || ! $roomId) {
             return redirect()->route('home');
         }
 
         try {
             $this->gameService->advanceToNextRound($roomId, $playerId);
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }

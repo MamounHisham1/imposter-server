@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 class Room extends Model
 {
@@ -16,6 +15,7 @@ class Room extends Model
         'language',
         'current_round',
         'word_pool',
+        'phase_votes',
         'creator_id',
         'last_activity_at',
     ];
@@ -25,6 +25,7 @@ class Room extends Model
         'rounds_per_game' => 'integer',
         'current_round' => 'integer',
         'word_pool' => 'array',
+        'phase_votes' => 'array',
         'last_activity_at' => 'datetime',
     ];
 

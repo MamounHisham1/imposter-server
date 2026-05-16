@@ -50,7 +50,7 @@ class Player extends Model
     {
         $room = $this->room;
 
-        if (!$room) {
+        if (! $room) {
             return 0;
         }
 
@@ -58,7 +58,7 @@ class Player extends Model
             ->where('round_number', $room->current_round)
             ->first();
 
-        if (!$currentRound) {
+        if (! $currentRound) {
             return 0;
         }
 

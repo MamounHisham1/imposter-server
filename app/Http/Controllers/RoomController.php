@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Services\GameService;
-use Inertia\Inertia;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 class RoomController extends Controller
 {
@@ -15,6 +16,7 @@ class RoomController extends Controller
     public function index()
     {
         $rooms = $this->gameService->getPublicRooms();
+
         return Inertia::render('Home', [
             'rooms' => $rooms,
         ]);
@@ -45,7 +47,7 @@ class RoomController extends Controller
                 $validated['avatar'] ?? null
             );
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
@@ -82,7 +84,7 @@ class RoomController extends Controller
             // back()->withErrors() triggers a 302 redirect, and during that redirect
             // Inertia can detect a Vite asset version mismatch (409 Conflict),
             // causing a full page reload that swallows the onError callback.
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
@@ -101,7 +103,7 @@ class RoomController extends Controller
         $roomId = session('room_id');
         $playerId = session('player_id');
 
-        if (!$roomId || !$playerId) {
+        if (! $roomId || ! $playerId) {
             return redirect()->route('home');
         }
 
@@ -109,6 +111,7 @@ class RoomController extends Controller
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
             session()->forget(['player_id', 'room_id']);
+
             return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
         }
 
@@ -122,14 +125,14 @@ class RoomController extends Controller
     public function toggleReady(Request $request)
     {
         $playerId = $request->input('player_id') ?? session('player_id');
-        if (!$playerId) {
+        if (! $playerId) {
             return redirect()->route('home');
         }
 
         try {
             $this->gameService->toggleReady($playerId);
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
@@ -141,14 +144,14 @@ class RoomController extends Controller
     {
         $playerId = $request->input('player_id') ?? session('player_id');
         $roomId = $request->input('room_id') ?? session('room_id');
-        if (!$playerId || !$roomId) {
+        if (! $playerId || ! $roomId) {
             return redirect()->route('home');
         }
 
         try {
             $this->gameService->startGame($roomId);
         } catch (\Exception $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'error' => $e->getMessage(),
             ]);
         }
@@ -156,10 +159,34 @@ class RoomController extends Controller
         return redirect()->route('game.show', $code);
     }
 
+    public function kickPlayer(Request $request, string $code)
+    {
+        $playerId = $request->input('player_id') ?? session('player_id');
+        $roomId = $request->input('room_id') ?? session('room_id');
+
+        $validated = $request->validate([
+            'target_id' => 'required|integer|exists:players,id',
+        ]);
+
+        if (! $playerId || ! $roomId) {
+            return redirect()->route('home');
+        }
+
+        try {
+            $this->gameService->kickPlayer($roomId, $playerId, $validated['target_id']);
+        } catch (\Exception $e) {
+            throw ValidationException::withMessages([
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return back();
+    }
+
     public function leaveRoom(Request $request)
     {
         $playerId = $request->input('player_id') ?? session('player_id');
-        if (!$playerId) {
+        if (! $playerId) {
             return redirect()->route('home');
         }
 

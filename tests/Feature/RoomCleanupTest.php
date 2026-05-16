@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Events\GameEvent;
+use App\Events\RoomListEvent;
 use App\Models\Player;
 use App\Models\Room;
 use App\Services\RoomCleanupService;
@@ -27,7 +29,8 @@ class RoomCleanupTest extends TestCase
     private function uniqueCode(): string
     {
         self::$roomCounter++;
-        return 'CODE' . str_pad((string) self::$roomCounter, 3, '0', STR_PAD_LEFT);
+
+        return 'CODE'.str_pad((string) self::$roomCounter, 3, '0', STR_PAD_LEFT);
     }
 
     private function createRoomWithPlayers(string $status = 'waiting', int $count = 3, string $type = 'public'): array
@@ -108,7 +111,7 @@ class RoomCleanupTest extends TestCase
         $this->assertFalse($result->roomDeleted);
         $this->assertEquals(3, $room->fresh()->players()->count());
 
-        Event::assertNotDispatched(\App\Events\GameEvent::class);
+        Event::assertNotDispatched(GameEvent::class);
     }
 
     public function test_stale_player_with_broadcast_dispatches_events(): void
@@ -122,7 +125,7 @@ class RoomCleanupTest extends TestCase
         $result = $this->service->purgeStalePlayers($room, broadcastGameEvents: true);
 
         $this->assertEquals(1, $result->removedPlayerCount);
-        Event::assertDispatched(\App\Events\GameEvent::class, function ($event) use ($room) {
+        Event::assertDispatched(GameEvent::class, function ($event) use ($room) {
             return $event->roomId === $room->id && $event->data['type'] === 'player_left';
         });
     }
@@ -142,10 +145,10 @@ class RoomCleanupTest extends TestCase
         $this->assertTrue($result->roomDeleted);
         $this->assertEquals(2, $result->removedPlayerCount);
         $this->assertNull(Room::find($room->id));
-        Event::assertDispatched(\App\Events\GameEvent::class, function ($event) use ($room) {
+        Event::assertDispatched(GameEvent::class, function ($event) use ($room) {
             return $event->roomId === $room->id && $event->data['type'] === 'room_deleted';
         });
-        Event::assertDispatched(\App\Events\RoomListEvent::class, function ($event) {
+        Event::assertDispatched(RoomListEvent::class, function ($event) {
             return $event->action === 'removed';
         });
     }
@@ -163,7 +166,7 @@ class RoomCleanupTest extends TestCase
         $this->assertTrue($result->creatorChanged);
         $this->assertEquals($players[1]->id, $result->newCreatorId);
         $this->assertEquals($players[1]->id, $room->fresh()->creator_id);
-        Event::assertDispatched(\App\Events\GameEvent::class, function ($event) use ($room) {
+        Event::assertDispatched(GameEvent::class, function ($event) use ($room) {
             return $event->roomId === $room->id && $event->data['type'] === 'creator_changed';
         });
     }
@@ -197,7 +200,7 @@ class RoomCleanupTest extends TestCase
         $result = $this->service->purgeStalePlayers($room, broadcastGameEvents: true);
 
         $this->assertTrue($result->roomDeleted);
-        Event::assertNotDispatched(\App\Events\RoomListEvent::class);
+        Event::assertNotDispatched(RoomListEvent::class);
     }
 
     public function test_new_player_grace_period_not_purged(): void
@@ -263,10 +266,10 @@ class RoomCleanupTest extends TestCase
 
         $this->assertEquals(1, $deleted);
         $this->assertNull(Room::find($room->id));
-        Event::assertDispatched(\App\Events\GameEvent::class, function ($event) use ($room) {
+        Event::assertDispatched(GameEvent::class, function ($event) use ($room) {
             return $event->roomId === $room->id && $event->data['type'] === 'room_deleted';
         });
-        Event::assertDispatched(\App\Events\RoomListEvent::class, function ($event) {
+        Event::assertDispatched(RoomListEvent::class, function ($event) {
             return $event->action === 'removed';
         });
     }
@@ -359,7 +362,7 @@ class RoomCleanupTest extends TestCase
 
         $this->assertEquals(1, $deleted);
         $this->assertNull(Room::find($room->id));
-        Event::assertNotDispatched(\App\Events\RoomListEvent::class);
-        Event::assertDispatched(\App\Events\GameEvent::class);
+        Event::assertNotDispatched(RoomListEvent::class);
+        Event::assertDispatched(GameEvent::class);
     }
 }

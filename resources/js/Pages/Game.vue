@@ -41,6 +41,14 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    phase_votes: {
+        type: Object,
+        default: () => ({}),
+    },
+    turn_started_at: {
+        type: String,
+        default: null,
+    },
 });
 
 const localPlayer = ref({ ...props.player });
@@ -48,15 +56,47 @@ const localHints = ref([...(props.hints || [])]);
 const localHintOrder = ref([...(props.hint_order || [])]);
 const localCurrentTurnPlayerId = ref(props.current_turn_player_id || null);
 const localHintsComplete = ref(props.hints_complete || false);
+const localPhaseVotes = ref(props.phase_votes || {});
+const hasPhaseVoted = ref(false);
 const hintInput = ref('');
 const localRound = ref(props.round || null);
 const localWord = ref(props.word || null);
 const localHintForImposter = ref(props.hint_for_imposter || null);
 const alertMessage = ref('');
 
-const isCreator = computed(() => {
-    return props.player?.id === props.room?.creator_id;
-});
+// Timer logic for hint phase (20s per turn)
+const HINT_TIMER_SECONDS = 20;
+const turnStartedAt = ref(props.turn_started_at ? new Date(props.turn_started_at) : null);
+const hintTimeLeft = ref(HINT_TIMER_SECONDS);
+let hintTimerInterval = null;
+
+function updateHintTimer() {
+    if (!turnStartedAt.value || localHintsComplete.value || !localCurrentTurnPlayerId.value) {
+        hintTimeLeft.value = HINT_TIMER_SECONDS;
+        return;
+    }
+    const elapsed = (Date.now() - turnStartedAt.value.getTime()) / 1000;
+    hintTimeLeft.value = Math.max(0, Math.ceil(HINT_TIMER_SECONDS - elapsed));
+
+    if (hintTimeLeft.value <= 0 && isMyTurn.value && !hasSubmittedHint.value) {
+        clearInterval(hintTimerInterval);
+        hintTimerInterval = null;
+        // Auto-skip: call skip endpoint
+        router.post('/game/' + props.room.code + '/skip-hint', {
+            player_id: props.player.id,
+        }, {
+            preserveScroll: true,
+            onError: () => {},
+        });
+    }
+}
+
+function startHintTimer() {
+    if (hintTimerInterval) clearInterval(hintTimerInterval);
+    if (!turnStartedAt.value || localHintsComplete.value || !localCurrentTurnPlayerId.value) return;
+    updateHintTimer();
+    hintTimerInterval = setInterval(updateHintTimer, 1000);
+}
 
 const wordLabel = computed(() => {
     return t('your_word');
@@ -119,26 +159,31 @@ function submitHint() {
     );
 }
 
-function goToVoting() {
-    router.post('/game/' + props.room.code + '/start-voting', {
+function submitPhaseVote(choice) {
+    if (hasPhaseVoted.value) return;
+    hasPhaseVoted.value = true;
+
+    router.post('/game/' + props.room.code + '/phase-vote', {
+        choice,
         player_id: props.player.id,
     }, {
+        preserveScroll: true,
         onError: (errors) => {
+            hasPhaseVoted.value = false;
             const msg = Object.values(errors)[0];
             if (msg) toastError(msg);
         },
     });
 }
 
-function continueRound() {
-    router.post('/game/' + props.room.code + '/next-round', {
-        player_id: props.player.id,
-    }, {
-        onError: (errors) => {
-            const msg = Object.values(errors)[0];
-            if (msg) toastError(msg);
-        },
-    });
+// Check if player already voted on page load
+if (props.phase_votes && props.player?.id && props.phase_votes[props.player.id]) {
+    hasPhaseVoted.value = true;
+}
+
+// Start timer on load if applicable
+if (turnStartedAt.value && !localHintsComplete.value && localCurrentTurnPlayerId.value) {
+    startHintTimer();
 }
 
 onMounted(() => {
@@ -153,11 +198,19 @@ onMounted(() => {
                         if (e.hints) localHints.value = e.hints;
                         if (e.next_player_id !== undefined) localCurrentTurnPlayerId.value = e.next_player_id;
                         if (e.hint_order) localHintOrder.value = e.hint_order;
+                        turnStartedAt.value = new Date();
+                        startHintTimer();
                         break;
                     case 'hints_complete':
                         if (e.hints) localHints.value = e.hints;
                         localHintsComplete.value = true;
                         localCurrentTurnPlayerId.value = null;
+                        localPhaseVotes.value = {};
+                        hasPhaseVoted.value = false;
+                        if (hintTimerInterval) { clearInterval(hintTimerInterval); hintTimerInterval = null; }
+                        break;
+                    case 'phase_vote_submitted':
+                        if (e.room?.phase_votes) localPhaseVotes.value = e.room.phase_votes;
                         break;
                     case 'round_complete':
                         if (e.hints) localHints.value = [];
@@ -173,11 +226,17 @@ onMounted(() => {
                         hintInput.value = '';
                         localHintsComplete.value = false;
                         localHints.value = [];
+                        localPhaseVotes.value = {};
+                        hasPhaseVoted.value = false;
+                        turnStartedAt.value = new Date();
+                        startHintTimer();
                         break;
                     case 'next_round':
                         localHints.value = [];
                         localHintsComplete.value = false;
                         localCurrentTurnPlayerId.value = null;
+                        localPhaseVotes.value = {};
+                        hasPhaseVoted.value = false;
                         hintInput.value = '';
                         router.visit('/game/' + props.room.code);
                         break;
@@ -204,6 +263,8 @@ onMounted(() => {
                         if (e.hint_order) localHintOrder.value = e.hint_order;
                         if (e.current_turn_player_id !== undefined) localCurrentTurnPlayerId.value = e.current_turn_player_id;
                         if (e.hints) localHints.value = e.hints;
+                        turnStartedAt.value = new Date();
+                        startHintTimer();
                         break;
                     case 'player_left':
                         if (e.room) {
@@ -217,6 +278,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    if (hintTimerInterval) clearInterval(hintTimerInterval);
     if (window.Echo) {
         window.Echo.leaveChannel('room.' + props.room?.id);
     }
@@ -290,22 +352,36 @@ onUnmounted(() => {
                             <label class="block text-lg md:text-xl mb-1 md:mb-2 text-right">{{ t('your_hint') }}</label>
                             <input v-model="hintInput" @keyup.enter="submitHint" type="text" class="western-input w-full text-2xl md:text-4xl py-1 md:py-2 px-2 md:px-4" placeholder="قل ما لديك..." maxlength="100" />
                         </div>
-                        <button @click="submitHint" :disabled="!hintInput.trim()" class="western-btn text-xl md:text-3xl px-6 md:px-8 py-3 md:py-4 uppercase w-full md:w-auto disabled:opacity-50">إرسال</button>
+                        <div class="flex items-center gap-4">
+                            <div v-if="hintTimeLeft < HINT_TIMER_SECONDS" class="text-2xl md:text-4xl font-bold" :class="hintTimeLeft <= 5 ? 'text-red-600 animate-pulse' : hintTimeLeft <= 10 ? 'text-[#8b2500] animate-pulse' : 'text-[#8b4513]'">
+                                {{ hintTimeLeft }}s
+                            </div>
+                            <button @click="submitHint" :disabled="!hintInput.trim()" class="western-btn text-xl md:text-3xl px-6 md:px-8 py-3 md:py-4 uppercase w-full md:w-auto disabled:opacity-50">إرسال</button>
+                        </div>
                     </div>
 
                     <!-- Waiting Text -->
-                    <div v-if="!localHintsComplete && !isMyTurn" class="mt-8 text-center text-xl md:text-2xl text-[#8b4513] animate-pulse">
+                    <div v-if="!localHintsComplete && !isMyTurn" class="mt-8 text-center text-xl md:text-2xl text-[#8b4513]">
                         <p v-if="waitingPlayer">{{ waitingPlayer.nickname }} {{ t('is_typing_hint') }}</p>
+                        <p v-else>{{ t('waiting_for_players') }}</p>
+                        <div v-if="hintTimeLeft < HINT_TIMER_SECONDS" class="mt-2 text-2xl md:text-3xl font-bold" :class="hintTimeLeft <= 5 ? 'text-red-600 animate-pulse' : hintTimeLeft <= 10 ? 'text-[#8b2500]' : 'text-[#8b4513]'">
+                            {{ hintTimeLeft }}s
+                        </div>
                         <p v-else>{{ t('waiting_for_players') }}</p>
                     </div>
 
-                    <!-- Actions when hints complete -->
-                    <div v-if="localHintsComplete && isCreator" class="flex flex-col sm:flex-row gap-4 mt-8 pt-6 border-t border-dashed border-[#8b4513]">
-                        <button @click="continueRound" class="western-btn-alt text-xl md:text-2xl px-4 py-3 flex-1 border-2 border-[#8b4513]">{{ t('continue_hints') }}</button>
-                        <button @click="goToVoting" class="western-btn text-xl md:text-2xl px-4 py-3 flex-1">{{ t('start_voting') }}</button>
-                    </div>
-                    <div v-if="localHintsComplete && !isCreator" class="mt-8 text-center text-xl md:text-2xl text-[#8b4513] animate-pulse">
-                        {{ t('waiting_for_host') }}
+                    <!-- Phase Voting when hints complete -->
+                    <div v-if="localHintsComplete" class="mt-8 pt-6 border-t border-dashed border-[#8b4513]">
+                        <template v-if="!hasPhaseVoted">
+                            <p class="text-center text-lg md:text-xl text-[#8b4513] mb-4">{{ t('phase_vote_prompt') }}</p>
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <button @click="submitPhaseVote('continue')" class="western-btn-alt text-xl md:text-2xl px-4 py-3 flex-1 border-2 border-[#8b4513]">{{ t('continue_hints') }}</button>
+                                <button @click="submitPhaseVote('vote')" class="western-btn text-xl md:text-2xl px-4 py-3 flex-1">{{ t('start_voting') }}</button>
+                            </div>
+                        </template>
+                        <div v-else class="text-center text-xl md:text-2xl text-[#8b4513] animate-pulse">
+                            {{ t('waiting_for_votes') }} ({{ Object.keys(localPhaseVotes).length }}/{{ players.length }})
+                        </div>
                     </div>
                 </div>
             </div>

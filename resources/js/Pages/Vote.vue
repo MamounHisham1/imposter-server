@@ -21,11 +21,46 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    voting_started_at: {
+        type: String,
+        default: null,
+    },
 });
 
 const selectedPlayerId = ref(null);
 const hasVoted = ref(false);
 const alertMessage = ref('');
+
+// Voting timer (30s)
+const VOTE_TIMER_SECONDS = 30;
+const voteTimeLeft = ref(VOTE_TIMER_SECONDS);
+let voteTimerInterval = null;
+
+function updateVoteTimer() {
+    if (!props.voting_started_at) return;
+    const startedAt = new Date(props.voting_started_at);
+    const elapsed = (Date.now() - startedAt.getTime()) / 1000;
+    voteTimeLeft.value = Math.max(0, Math.ceil(VOTE_TIMER_SECONDS - elapsed));
+
+    if (voteTimeLeft.value <= 0) {
+        clearInterval(voteTimerInterval);
+        voteTimerInterval = null;
+        // Auto-timeout: trigger resolution
+        router.post('/game/' + props.room.code + '/timeout-vote', {
+            room_id: props.room.id,
+        }, {
+            preserveScroll: true,
+            onError: () => {},
+        });
+    }
+}
+
+function startVoteTimer() {
+    if (voteTimerInterval) clearInterval(voteTimerInterval);
+    if (!props.voting_started_at) return;
+    updateVoteTimer();
+    voteTimerInterval = setInterval(updateVoteTimer, 1000);
+}
 
 function selectPlayer(playerId) {
     if (hasVoted.value) return;
@@ -49,6 +84,9 @@ function submitVote() {
         }
     );
 }
+
+// Start vote timer on load
+startVoteTimer();
 
 // Echo listeners
 onMounted(() => {
@@ -91,6 +129,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    if (voteTimerInterval) clearInterval(voteTimerInterval);
     if (window.Echo) {
         window.Echo.leaveChannel('room.' + props.room.id);
     }
@@ -118,6 +157,9 @@ onUnmounted(() => {
                         <h2 class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('round') }} {{ round?.round_number || 1 }}</h2>
                         <h1 class="text-5xl md:text-7xl wanted-text uppercase">{{ t('vote_now') }}</h1>
                         <p class="mt-2 md:mt-4 text-base md:text-2xl text-gray-700">{{ t('vote_instruction') }}</p>
+                        <div v-if="voteTimeLeft <= 15" class="mt-3 text-3xl md:text-5xl font-bold" :class="voteTimeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-[#8b2500]'">
+                            {{ voteTimeLeft }}s
+                        </div>
                     </header>
 
                     <!-- Hints Review -->

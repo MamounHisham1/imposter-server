@@ -8,7 +8,6 @@ use App\Events\RoomListEvent;
 use App\Models\Player;
 use App\Models\Room;
 use Illuminate\Support\Facades\DB;
-use App\Services\GameService;
 
 class RoomCleanupService
 {
@@ -26,7 +25,7 @@ class RoomCleanupService
             ->toArray();
 
         if (empty($stalePlayerIds)) {
-            return new CleanupResult();
+            return new CleanupResult;
         }
 
         return DB::transaction(fn () => $this->removePlayersFromRoom($room, $stalePlayerIds, $broadcastGameEvents));
@@ -110,7 +109,7 @@ class RoomCleanupService
     private function removePlayersFromRoom(Room $room, array $playerIds, bool $broadcastGameEvents): CleanupResult
     {
         if (empty($playerIds)) {
-            return new CleanupResult();
+            return new CleanupResult;
         }
 
         // For mid-game rooms, delegate to GameService::leaveRoom for each stale player
@@ -128,7 +127,7 @@ class RoomCleanupService
             }
 
             $room = $room->fresh();
-            if (!$room) {
+            if (! $room) {
                 return new CleanupResult(
                     roomDeleted: true,
                     removedPlayerCount: count($playerIds),

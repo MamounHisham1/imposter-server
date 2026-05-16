@@ -32,6 +32,20 @@ const allReady = computed(() => {
     );
 });
 
+function kickPlayer(targetId) {
+    router.post('/room/' + props.room.code + '/kick', {
+        target_id: targetId,
+        player_id: props.player.id,
+        room_id: props.room.id,
+    }, {
+        preserveScroll: true,
+        onError: (errors) => {
+            const msg = Object.values(errors)[0];
+            if (msg) toastError(msg);
+        },
+    });
+}
+
 function toggleReady() {
     router.post('/room/' + props.room.code + '/ready', { player_id: props.player.id }, {
         preserveScroll: true,
@@ -130,6 +144,7 @@ onUnmounted(() => {
                                 :class="p.is_ready ? 'bg-[#8b4513] text-[#e8dcc4] border-[#4a2511]' : 'bg-[#d3bfa1] text-[#4a2511] border-[#8b4513] opacity-80'"
                                 :style="`transform: rotate(${p.id % 2 === 0 ? '2deg' : '-2deg'});`"
                             >
+                                <button v-if="isCreator && p.id !== player.id" @click="kickPlayer(p.id)" class="absolute -top-2 -left-2 w-6 h-6 bg-red-700 text-white rounded-full text-xs flex items-center justify-center shadow hover:bg-red-900 z-10" :title="t('kick_player')">&times;</button>
                                 <AvatarDisplay :avatar="p.avatar" :size="56" />
                                 <span class="truncate max-w-[80px] md:max-w-[100px]">{{ p.nickname }}</span>
                                 <span v-if="p.id === localRoom.creator_id" class="text-xs absolute -top-2 -right-2 bg-yellow-500 text-black px-1 rounded transform rotate-12">الزعيم</span>

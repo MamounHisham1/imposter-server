@@ -10,7 +10,6 @@ use App\Models\Room;
 use App\Models\Round;
 use App\Models\Vote;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class GameService
 {
@@ -161,6 +160,29 @@ class GameService
             'player' => $this->formatPlayer($player->fresh()),
             'all_ready' => $allReady,
         ];
+    }
+
+    /**
+     * Kick a player from the room. Only the creator can kick.
+     */
+    public function kickPlayer(int $roomId, int $creatorId, int $targetPlayerId): array
+    {
+        $room = Room::findOrFail($roomId);
+
+        if ($room->creator_id !== $creatorId) {
+            throw new \Exception(__('errors.creator_only'));
+        }
+
+        if ($creatorId === $targetPlayerId) {
+            throw new \Exception(__('errors.cannot_kick_self'));
+        }
+
+        $target = Player::where('id', $targetPlayerId)->where('room_id', $roomId)->first();
+        if (! $target) {
+            throw new \Exception(__('errors.player_not_in_room'));
+        }
+
+        return $this->leaveRoom($targetPlayerId);
     }
 
     /**
@@ -400,7 +422,7 @@ class GameService
         $allHintsSubmitted = $totalNeeded > 0 && $submittedCount >= $totalNeeded;
 
         $nextPlayerId = null;
-        if (!$allHintsSubmitted && count($newHintOrder) > 0) {
+        if (! $allHintsSubmitted && count($newHintOrder) > 0) {
             // The submitted count maps to the next index in the new order
             $nextIdx = min($submittedCount, count($newHintOrder) - 1);
             $nextPlayerId = $newHintOrder[$nextIdx] ?? null;
@@ -413,7 +435,7 @@ class GameService
                 // Find the first player in order who hasn't submitted yet
                 $submittedPlayerIds = $currentRound->hints()->pluck('player_id')->toArray();
                 foreach ($newHintOrder as $pid) {
-                    if (!in_array($pid, $submittedPlayerIds)) {
+                    if (! in_array($pid, $submittedPlayerIds)) {
                         $nextPlayerId = $pid;
                         break;
                     }
@@ -503,6 +525,7 @@ class GameService
                 'imposter_hint' => $generated['hint'],
                 'imposter_id' => $imposter->id,
                 'hint_order' => $hintOrder,
+                'turn_started_at' => now(),
             ]);
 
             $room->update([
@@ -579,9 +602,14 @@ class GameService
         if (! $allHintsSubmitted && ! empty($hintOrder)) {
             $nextIdx = $round->hints()->count();
             $nextPlayerId = $hintOrder[$nextIdx] ?? null;
+            // Reset timer for the next player's turn
+            $round->update(['turn_started_at' => now()]);
         }
 
         if ($allHintsSubmitted) {
+            // Clear any previous phase votes for this decision cycle
+            $room->update(['phase_votes' => null]);
+
             broadcast(new GameEvent($room->id, 'hints_complete', [
                 'room' => $this->formatRoom($room->fresh()),
                 'round' => $this->formatRound($round->fresh()),
@@ -608,6 +636,154 @@ class GameService
         ];
     }
 
+    /**
+     * Skip a player's hint turn (timer expired). Moves to the next player in order.
+     * If all remaining hints are skipped or submitted, triggers hints_complete.
+     */
+    public function skipHint(int $roundId, int $playerId): array
+    {
+        $round = Round::findOrFail($roundId);
+        $room = $round->room;
+
+        if ($room->status !== 'playing') {
+            throw new \Exception(__('errors.not_playing'));
+        }
+
+        // Verify it's this player's turn
+        $hintOrder = $round->hint_order ?? [];
+        $submittedCount = $round->hints()->count();
+
+        if (empty($hintOrder) || ! isset($hintOrder[$submittedCount])) {
+            throw new \Exception(__('errors.no_active_round'));
+        }
+
+        $expectedPlayerId = $hintOrder[$submittedCount];
+        if ($playerId != $expectedPlayerId) {
+            throw new \Exception(__('errors.not_your_turn', ['player' => Player::find($expectedPlayerId)?->nickname ?? '']));
+        }
+
+        // Check if the hint timer hasn't expired yet (20 seconds)
+        if ($round->turn_started_at && $round->turn_started_at->diffInSeconds(now()) < 20) {
+            throw new \Exception(__('errors.timer_not_expired'));
+        }
+
+        // Submit a placeholder hint for the skipped player instead of removing them
+        Hint::create([
+            'round_id' => $roundId,
+            'player_id' => $playerId,
+            'content' => '...',
+        ]);
+
+        $room->touchActivity();
+        $round->refresh();
+        $allHintsSubmitted = $round->hints()->count() >= $room->players()->count();
+
+        $nextPlayerId = null;
+        if (! $allHintsSubmitted && ! empty($hintOrder)) {
+            $nextIdx = $round->hints()->count();
+            $nextPlayerId = $hintOrder[$nextIdx] ?? null;
+            $round->update(['turn_started_at' => now()]);
+        }
+
+        $player = Player::find($playerId);
+
+        if ($allHintsSubmitted) {
+            $room->update(['phase_votes' => null]);
+            broadcast(new GameEvent($room->id, 'hints_complete', [
+                'room' => $this->formatRoom($room->fresh()),
+                'round' => $this->formatRound($round->fresh()),
+                'hints' => $this->formatHints($round->fresh()->hints),
+                'creator_id' => $room->creator_id,
+            ]));
+        } else {
+            broadcast(new GameEvent($room->id, 'hint_submitted', [
+                'room' => $this->formatRoom($room->fresh()),
+                'player_id' => $playerId,
+                'nickname' => $player?->nickname,
+                'hints' => $this->formatHints($round->fresh()->hints),
+                'hints_count' => $round->hints()->count(),
+                'total_players' => $room->players()->count(),
+                'next_player_id' => $nextPlayerId,
+                'hint_order' => $hintOrder,
+            ]));
+        }
+
+        return ['skipped' => true, 'next_player_id' => $nextPlayerId];
+    }
+
+    /**
+     * Submit a phase vote (continue hints or start voting) after all hints are in.
+     * Once all players have voted, the majority decision is executed automatically.
+     */
+    public function submitPhaseVote(int $roomId, int $playerId, string $choice): array
+    {
+        if (! in_array($choice, ['vote', 'continue'])) {
+            throw new \Exception(__('errors.invalid_phase_vote'));
+        }
+
+        $room = Room::with('players')->findOrFail($roomId);
+
+        if ($room->status !== 'playing') {
+            throw new \Exception(__('errors.not_playing'));
+        }
+
+        $round = $room->rounds()->where('round_number', $room->current_round)->first();
+        if (! $round || $round->hints()->count() < $room->players()->count()) {
+            throw new \Exception(__('errors.hints_incomplete'));
+        }
+
+        $player = $room->players()->where('id', $playerId)->first();
+        if (! $player) {
+            throw new \Exception(__('errors.player_not_in_room'));
+        }
+
+        $phaseVotes = $room->phase_votes ?? [];
+        $phaseVotes[$playerId] = $choice;
+        $room->update(['phase_votes' => $phaseVotes]);
+        $room->touchActivity();
+
+        $totalPlayers = $room->players()->count();
+        $voteCount = count($phaseVotes);
+        $voteForVoting = count(array_filter($phaseVotes, fn ($v) => $v === 'vote'));
+        $voteForContinue = count(array_filter($phaseVotes, fn ($v) => $v === 'continue'));
+
+        broadcast(new GameEvent($room->id, 'phase_vote_submitted', [
+            'room' => $this->formatRoom($room->fresh()),
+            'player_id' => $playerId,
+            'choice' => $choice,
+            'votes_count' => $voteCount,
+            'total_players' => $totalPlayers,
+            'vote_for_voting' => $voteForVoting,
+            'vote_for_continue' => $voteForContinue,
+        ]));
+
+        // Check if all players have voted
+        if ($voteCount >= $totalPlayers) {
+            $room->update(['phase_votes' => null]);
+
+            if ($voteForVoting > $voteForContinue) {
+                return $this->startVoting($roomId, $room->creator_id);
+            }
+
+            return $this->advanceRound($roomId, $room->creator_id);
+        }
+
+        // Check for early majority (unreachable threshold)
+        $majority = (int) ceil(($totalPlayers + 1) / 2);
+        if ($voteForVoting >= $majority) {
+            $room->update(['phase_votes' => null]);
+
+            return $this->startVoting($roomId, $room->creator_id);
+        }
+        if ($voteForContinue >= $majority) {
+            $room->update(['phase_votes' => null]);
+
+            return $this->advanceRound($roomId, $room->creator_id);
+        }
+
+        return ['phase_votes' => $phaseVotes, 'vote_count' => $voteCount];
+    }
+
     public function advanceRound(int $roomId, int $creatorId): array
     {
         $room = Room::with('players')->findOrFail($roomId);
@@ -622,13 +798,13 @@ class GameService
 
         $round = $room->rounds()->where('round_number', $room->current_round)->first();
 
-        if (!$round || $round->hints()->count() < $room->players()->count()) {
+        if (! $round || $round->hints()->count() < $room->players()->count()) {
             throw new \Exception(__('errors.hints_incomplete'));
         }
 
         // Same round, same imposter — just clear hints and restart the cycle
         $round->hints()->delete();
-        $round->touch();
+        $round->update(['turn_started_at' => now()]);
         $room->touchActivity();
 
         $hintOrder = $round->hint_order;
@@ -664,6 +840,9 @@ class GameService
         $room->touchActivity();
 
         $round = $room->rounds()->where('round_number', $room->current_round)->first();
+        if ($round) {
+            $round->update(['voting_started_at' => now()]);
+        }
 
         broadcast(new GameEvent($room->id, 'voting_started', [
             'room' => $this->formatRoom($room->fresh()),
@@ -730,6 +909,34 @@ class GameService
             'all_votes_submitted' => $allVotesSubmitted,
             'votes_count' => $round->votes()->count(),
         ];
+    }
+
+    /**
+     * Force-resolve votes when the voting timer expires.
+     * Resolves with whatever votes are currently in (non-voters abstain).
+     */
+    public function timeoutVotes(int $roomId): array
+    {
+        $room = Room::findOrFail($roomId);
+
+        if ($room->status !== 'voting') {
+            return ['status' => 'not_voting'];
+        }
+
+        $currentRound = $room->rounds()
+            ->where('round_number', $room->current_round)
+            ->first();
+
+        if (! $currentRound) {
+            return ['status' => 'no_round'];
+        }
+
+        // Check that voting_started_at exists and 30s have passed
+        if ($currentRound->voting_started_at && $currentRound->voting_started_at->diffInSeconds(now()) < 30) {
+            return ['status' => 'timer_not_expired'];
+        }
+
+        return $this->resolveVotes($roomId);
     }
 
     /**
@@ -905,6 +1112,7 @@ class GameService
                 'imposter_hint' => $generated['hint'],
                 'imposter_id' => $newImposter->id,
                 'hint_order' => $hintOrder,
+                'turn_started_at' => now(),
             ]);
 
             $room->update([
@@ -978,6 +1186,9 @@ class GameService
             'votes' => [],
             'word' => null,
             'hint_for_imposter' => null,
+            'phase_votes' => $room->phase_votes,
+            'turn_started_at' => null,
+            'voting_started_at' => null,
         ];
 
         if (in_array($room->status, ['playing', 'voting']) && $room->current_round > 0) {
@@ -987,6 +1198,8 @@ class GameService
 
             if ($currentRound) {
                 $state['current_round'] = $this->formatRound($currentRound);
+                $state['turn_started_at'] = $currentRound->turn_started_at?->toISOString();
+                $state['voting_started_at'] = $currentRound->voting_started_at?->toISOString();
 
                 // If the player is the imposter, they get the hint instead of the real word
                 if ($player->is_imposter) {
@@ -1051,7 +1264,7 @@ class GameService
             $imposter = $room->players()->where('is_imposter', true)->first();
 
             // Fallback: if the imposter was deleted (fled), reconstruct from round data
-            if (!$imposter && $lastRound) {
+            if (! $imposter && $lastRound) {
                 $imposterPlayer = Player::find($lastRound->imposter_id);
                 $imposter = $imposterPlayer;
             }
@@ -1116,6 +1329,7 @@ class GameService
             'current_round' => $room->current_round,
             'creator_id' => $room->creator_id,
             'players_count' => $room->players()->count(),
+            'phase_votes' => $room->phase_votes,
             'created_at' => $room->created_at?->toISOString(),
         ];
     }
@@ -1154,6 +1368,8 @@ class GameService
             'room_id' => $round->room_id,
             'round_number' => $round->round_number,
             'hint_order' => $round->hint_order,
+            'turn_started_at' => $round->turn_started_at?->toISOString(),
+            'voting_started_at' => $round->voting_started_at?->toISOString(),
             'created_at' => $round->created_at?->toISOString(),
         ];
     }

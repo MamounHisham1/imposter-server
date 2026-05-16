@@ -91,5 +91,9 @@
   "avatar_hair": "Hair",
   "avatar_eyes": "Eyewear",
   "avatar_beard": "Beard",
-  "avatar_none": "None"
+  "avatar_none": "None",
+  "kick_player": "Kick",
+  "err_cannot_kick_self": "You cannot kick yourself.",
+  "phase_vote_prompt": "What should we do next?",
+  "waiting_for_votes": "Waiting for votes..."
 }

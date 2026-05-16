@@ -14,15 +14,11 @@ class GameEvent implements ShouldBroadcastNow
 
     /**
      * The data payload for the event.
-     *
-     * @var array
      */
     public array $data;
 
     /**
      * The room ID this event is scoped to.
-     *
-     * @var int
      */
     public int $roomId;
 
@@ -42,7 +38,7 @@ class GameEvent implements ShouldBroadcastNow
     /**
      * Get the channels the event should broadcast on.
      *
-     * @return array<int, \Illuminate\Broadcasting\Channel>
+     * @return array<int, Channel>
      */
     public function broadcastOn(): array
     {
@@ -61,8 +57,6 @@ class GameEvent implements ShouldBroadcastNow
 
     /**
      * Get the data to broadcast.
-     *
-     * @return array
      */
     public function broadcastWith(): array
     {

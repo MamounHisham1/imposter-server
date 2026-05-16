@@ -16,4 +16,7 @@ return [
     'not_round_result' => 'ليس وقت الحكم بعد يا صاح.',
     'no_active_round' => 'لا جولة قائمة في البلدة الآن.',
     'player_not_in_room' => 'لست من أهل هذه الغرفة يا غريب.',
+    'cannot_kick_self' => 'لا يمكنك طرد نفسك من صالتك!',
+    'invalid_phase_vote' => 'هذا خيار غير صالح يا رجل.',
+    'timer_not_expired' => 'تمهل! لم ينقضِ الوقت بعد.',
 ];

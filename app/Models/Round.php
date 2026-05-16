@@ -16,6 +16,8 @@ class Round extends Model
         'imposter_caught',
         'vote_tally',
         'hint_order',
+        'turn_started_at',
+        'voting_started_at',
     ];
 
     protected $casts = [
@@ -23,6 +25,8 @@ class Round extends Model
         'imposter_caught' => 'boolean',
         'vote_tally' => 'array',
         'hint_order' => 'array',
+        'turn_started_at' => 'datetime',
+        'voting_started_at' => 'datetime',
     ];
 
     public function room()
