@@ -13,12 +13,14 @@ class Player extends Model
         'is_imposter',
         'score',
         'session_id',
+        'avatar',
     ];
 
     protected $casts = [
         'is_ready' => 'boolean',
         'is_imposter' => 'boolean',
         'score' => 'integer',
+        'avatar' => 'array',
     ];
 
     public function room()

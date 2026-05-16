@@ -87,5 +87,9 @@
   "game_aborted": "Game Aborted",
   "game_aborted_desc": "Not enough players to continue the game.",
   "player_disconnected": "{name} has left the game.",
-  "crew_wins_forfeit": "CREW WINS - TRAITOR FLED"
+  "crew_wins_forfeit": "CREW WINS - TRAITOR FLED",
+  "avatar_hair": "Hair",
+  "avatar_eyes": "Eyewear",
+  "avatar_beard": "Beard",
+  "avatar_none": "None"
 }

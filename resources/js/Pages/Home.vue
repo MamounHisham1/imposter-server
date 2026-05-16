@@ -1,13 +1,36 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import { useErrorToasts } from '../Composables/useErrorToasts';
+import { useAvatarBuilder } from '../Composables/useAvatarBuilder';
+import { AVATAR_BASE, getLayerStyle } from '../Composables/useAvatarConfig';
 
 const { t, locale } = useI18n();
 const { error: toastError } = useToast();
 useErrorToasts();
+
+const { state: avatarState, heads: avatarHeads, selectHead, getFilename: getAvatarFilename, isNone, setNone, prevItem, nextItem, getAvatarData: buildAvatarData } = useAvatarBuilder();
+
+const avatarWrap = ref(null);
+const previewSize = ref(120);
+
+onMounted(() => {
+    const update = () => {
+        if (avatarWrap.value) previewSize.value = avatarWrap.value.offsetWidth || 120;
+    };
+    update();
+    window.addEventListener('resize', update);
+    onUnmounted(() => window.removeEventListener('resize', update));
+});
+
+function getAvatarLayerStyle(layer, filename) {
+    if (!filename) return {};
+    const al = getLayerStyle(layer, filename, previewSize.value);
+    if (!al || al.display === 'none') return {};
+    return { transform: al.transform };
+}
 
 const props = defineProps({
     rooms: {
@@ -56,12 +79,14 @@ const createForm = useForm({
     type: 'public',
     max_players: 6,
     rounds_per_game: 3,
-    language: 'ar', // Defaulting to Arabic for this theme
+    language: 'ar',
+    avatar: {},
 });
 
 const joinForm = useForm({
     code: '',
     nickname: '',
+    avatar: {},
 });
 
 // Sync nicknames
@@ -93,6 +118,7 @@ function switchLocale() {
 }
 
 function submitCreate() {
+    createForm.avatar = buildAvatarData();
     createForm.post('/room', {
         preserveScroll: true,
         onError: (errors) => {
@@ -103,6 +129,7 @@ function submitCreate() {
 }
 
 function submitJoin() {
+    joinForm.avatar = buildAvatarData();
     joinForm.post('/room/join', {
         preserveScroll: true,
         onError: (errors) => {
@@ -142,6 +169,44 @@ function submitJoin() {
                     <div>
                         <label class="block text-lg md:text-xl mb-1 md:mb-2 text-[#8b4513]">{{ t('nickname') }}:</label>
                         <input v-model="createForm.nickname" type="text" class="western-input w-full text-2xl md:text-3xl py-1 md:py-2 text-center" :placeholder="t('nickname')" maxlength="20" />
+                    </div>
+
+                    <!-- Avatar Builder -->
+                    <div class="mt-4">
+                        <!-- Preview -->
+                        <div class="flex justify-center mb-3">
+                            <div class="avatar-preview-wrap" ref="avatarWrap">
+                                <img :src="`/avatars/${avatarHeads[avatarState.head] || avatarHeads[0]}`" class="avatar-layer" />
+                                <img v-if="getAvatarFilename('beard')" :src="`/avatars/${getAvatarFilename('beard')}`"
+                                    class="avatar-layer"
+                                    :style="getAvatarLayerStyle('beard', getAvatarFilename('beard'))" />
+                                <img v-if="getAvatarFilename('eyes')" :src="`/avatars/${getAvatarFilename('eyes')}`"
+                                    class="avatar-layer"
+                                    :style="getAvatarLayerStyle('eyes', getAvatarFilename('eyes'))" />
+                                <img v-if="getAvatarFilename('hair')" :src="`/avatars/${getAvatarFilename('hair')}`"
+                                    class="avatar-layer"
+                                    :style="getAvatarLayerStyle('hair', getAvatarFilename('hair'))" />
+                            </div>
+                        </div>
+
+                        <!-- Head colors -->
+                        <div class="flex justify-center gap-2 mb-3 flex-wrap">
+                            <div v-for="(head, i) in avatarHeads" :key="head"
+                                class="head-swatch" :class="{ active: avatarState.head === i }"
+                                @click="selectHead(i)">
+                                <img :src="`/avatars/${head}`" alt="" />
+                            </div>
+                        </div>
+
+                        <!-- Selector rows -->
+                        <div class="space-y-2">
+                            <div v-for="layer in ['hair', 'eyes', 'beard']" :key="layer" class="selector-row">
+                                <button class="sel-btn" @click="prevItem(layer)" type="button">&#8249;</button>
+                                <span class="sel-label">{{ t('avatar_' + layer) }}</span>
+                                <button class="none-btn" :class="{ active: isNone(layer) }" @click="setNone(layer)" type="button">{{ t('avatar_none') }}</button>
+                                <button class="sel-btn" @click="nextItem(layer)" type="button">&#8250;</button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Expandable Settings for Create -->
@@ -250,4 +315,23 @@ function submitJoin() {
 @media (min-width: 768px) { .scrollbar-western::-webkit-scrollbar { width: 8px; } }
 .scrollbar-western::-webkit-scrollbar-track { background: #3a2010; }
 .scrollbar-western::-webkit-scrollbar-thumb { background: #8b5a2b; border-radius: 4px; }
+
+.avatar-preview-wrap { width: 120px; height: 120px; position: relative; margin: 0 auto 10px; border-radius: 10px; overflow: hidden; border: 3px solid #8b6914; box-shadow: 0 4px 12px rgba(0,0,0,0.3); background: #d3bfa1; }
+@media (min-width: 768px) { .avatar-preview-wrap { width: 150px; height: 150px; } }
+.avatar-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.head-swatch { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 2px solid #b8a07e; cursor: pointer; transition: border-color 0.15s; }
+@media (min-width: 768px) { .head-swatch { width: 38px; height: 38px; } }
+.head-swatch:hover { border-color: #8b4513; }
+.head-swatch.active { border-color: #4a2511; box-shadow: 0 0 6px rgba(74,37,17,0.4); }
+.head-swatch img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.selector-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; }
+.sel-label { color: #8b4513; font-size: 13px; width: 48px; text-align: center; }
+@media (min-width: 768px) { .sel-label { font-size: 15px; width: 55px; } }
+.sel-btn { width: 34px; height: 34px; border-radius: 6px; border: 2px solid #4a1500; background: #8b2500; color: #e8dcc4; font-family: 'Lalezar', cursive; font-size: 18px; cursor: pointer; box-shadow: 1px 1px 0 #3a1000; display: flex; align-items: center; justify-content: center; transition: all 0.1s; }
+@media (min-width: 768px) { .sel-btn { width: 38px; height: 38px; } }
+.sel-btn:active { box-shadow: none; transform: translate(1px, 1px); }
+.none-btn { width: 34px; height: 34px; border-radius: 6px; border: 2px solid #b8a07e; background: #d3bfa1; color: #8b4513; font-family: 'Lalezar', cursive; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+@media (min-width: 768px) { .none-btn { width: 38px; height: 38px; font-size: 11px; } }
+.none-btn:hover { border-color: #8b4513; }
+.none-btn.active { background: #8b4513; color: #e8dcc4; border-color: #4a1500; }
 </style>

@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import GameLayout from '../layouts/GameLayout.vue';
+import AvatarDisplay from '../Components/AvatarDisplay.vue';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
@@ -143,7 +144,10 @@ onUnmounted(() => {
                             ]"
                             :style="`transform: rotate(${p.id % 2 === 0 ? '1deg' : '-1deg'});`"
                         >
-                            <div class="text-xl md:text-2xl font-bold mb-1">{{ p.nickname }}</div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <AvatarDisplay :avatar="p.avatar" :size="48" />
+                                <span class="text-xl md:text-2xl font-bold">{{ p.nickname }}</span>
+                            </div>
                             <div v-if="p.id === player.id" class="text-sm opacity-70">({{ t('you') }})</div>
                             
                             <!-- Crosshair / Stamp if selected -->

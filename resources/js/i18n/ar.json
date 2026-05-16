@@ -87,5 +87,9 @@
   "game_aborted": "أُلغيت اللعبة",
   "game_aborted_desc": "لا يكفي عدد اللاعبين لاستمرار اللعبة.",
   "player_disconnected": "غادر {name} اللعبة.",
-  "crew_wins_forfeit": "فاز الطاقم - هرب الخائن"
+  "crew_wins_forfeit": "فاز الطاقم - هرب الخائن",
+  "avatar_hair": "الشعر",
+  "avatar_eyes": "النظارات",
+  "avatar_beard": "اللحية",
+  "avatar_none": "بدون"
 }

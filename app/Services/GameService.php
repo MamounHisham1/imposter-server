@@ -34,9 +34,9 @@ class GameService
      *
      * @return array Data for broadcasting to frontend.
      */
-    public function createRoom(string $nickname, string $type, int $maxPlayers, int $roundsPerGame, string $language = 'en'): array
+    public function createRoom(string $nickname, string $type, int $maxPlayers, int $roundsPerGame, string $language = 'en', ?array $avatar = null): array
     {
-        return DB::transaction(function () use ($nickname, $type, $maxPlayers, $roundsPerGame, $language) {
+        return DB::transaction(function () use ($nickname, $type, $maxPlayers, $roundsPerGame, $language, $avatar) {
             $room = Room::create([
                 'code' => Room::generateCode(),
                 'type' => $type,
@@ -53,6 +53,7 @@ class GameService
                 'is_ready' => false,
                 'is_imposter' => false,
                 'score' => 0,
+                'avatar' => $avatar,
             ]);
 
             $room->update(['creator_id' => $player->id]);
@@ -80,7 +81,7 @@ class GameService
      *
      * @throws \Exception
      */
-    public function joinRoom(string $code, string $nickname): array
+    public function joinRoom(string $code, string $nickname, ?array $avatar = null): array
     {
         $room = Room::where('code', strtoupper($code))->first();
 
@@ -113,6 +114,7 @@ class GameService
             'is_ready' => false,
             'is_imposter' => false,
             'score' => 0,
+            'avatar' => $avatar,
         ]);
 
         $room->touchActivity();
@@ -325,6 +327,7 @@ class GameService
                     'id' => $playerId,
                     'nickname' => $playerNickname,
                     'is_imposter' => true,
+                    'avatar' => $player->avatar,
                 ],
                 'vote_tally' => [],
                 'imposter_caught' => false,
@@ -1129,6 +1132,7 @@ class GameService
             'is_ready' => $player->is_ready,
             'is_imposter' => $player->is_imposter,
             'score' => $player->score,
+            'avatar' => $player->avatar,
         ];
     }
 

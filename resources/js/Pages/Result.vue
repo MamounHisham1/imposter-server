@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import GameLayout from '../layouts/GameLayout.vue';
+import AvatarDisplay from '../Components/AvatarDisplay.vue';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
@@ -163,7 +164,8 @@ function backToLobby() {
                             <!-- Imposter Reveal -->
                             <div class="mb-8">
                                 <p class="text-xl md:text-2xl text-gray-700 mb-2">{{ t('the_imposter_was') }}</p>
-                                <div class="inline-block px-8 py-3 bg-[#8b2500] text-[#e8dcc4] text-4xl md:text-6xl border-4 border-[#4a1500] transform -rotate-2 shadow-lg">
+                                <div class="inline-flex items-center gap-4 px-8 py-3 bg-[#8b2500] text-[#e8dcc4] text-4xl md:text-6xl border-4 border-[#4a1500] transform -rotate-2 shadow-lg">
+                                    <AvatarDisplay v-if="imposter?.avatar" :avatar="imposter.avatar" :size="80" />
                                     {{ imposter?.nickname || '???' }}
                                 </div>
                             </div>

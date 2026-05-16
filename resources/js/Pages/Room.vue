@@ -4,6 +4,7 @@ import { router, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import GameLayout from '../layouts/GameLayout.vue';
+import AvatarDisplay from '../Components/AvatarDisplay.vue';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
@@ -124,11 +125,12 @@ onUnmounted(() => {
                     <div class="text-center mb-6">
                         <h3 class="text-2xl md:text-3xl wanted-text mb-4">{{ t('waiting_for_players') }} ({{ localPlayers.length }})</h3>
                         <div class="flex flex-wrap justify-center gap-2 md:gap-4">
-                            <div v-for="p in localPlayers" :key="p.id" 
-                                class="px-3 md:px-4 py-2 border shadow text-lg md:text-2xl transition-all"
+                            <div v-for="p in localPlayers" :key="p.id"
+                                class="px-3 md:px-4 py-2 border shadow text-lg md:text-2xl transition-all flex items-center gap-2"
                                 :class="p.is_ready ? 'bg-[#8b4513] text-[#e8dcc4] border-[#4a2511]' : 'bg-[#d3bfa1] text-[#4a2511] border-[#8b4513] opacity-80'"
                                 :style="`transform: rotate(${p.id % 2 === 0 ? '2deg' : '-2deg'});`"
                             >
+                                <AvatarDisplay :avatar="p.avatar" :size="36" />
                                 {{ p.nickname }}
                                 <span v-if="p.id === localRoom.creator_id" class="text-xs absolute -top-2 -right-2 bg-yellow-500 text-black px-1 rounded transform rotate-12">الزعيم</span>
                                 <span v-if="p.id === player.id" class="text-xs text-black/50 ml-1">({{ t('you') }})</span>

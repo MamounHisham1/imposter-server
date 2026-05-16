@@ -28,6 +28,11 @@ class RoomController extends Controller
             'max_players' => 'required|integer|min:3|max:10',
             'rounds_per_game' => 'required|integer|min:1|max:5',
             'language' => 'required|in:en,ar',
+            'avatar' => 'nullable|array',
+            'avatar.head' => 'nullable|string',
+            'avatar.eyes' => 'nullable|string',
+            'avatar.hair' => 'nullable|string',
+            'avatar.beard' => 'nullable|string',
         ]);
 
         try {
@@ -36,7 +41,8 @@ class RoomController extends Controller
                 $validated['type'],
                 $validated['max_players'],
                 $validated['rounds_per_game'],
-                $validated['language']
+                $validated['language'],
+                $validated['avatar'] ?? null
             );
         } catch (\Exception $e) {
             throw \Illuminate\Validation\ValidationException::withMessages([
@@ -58,12 +64,18 @@ class RoomController extends Controller
         $validated = $request->validate([
             'code' => 'required|string|size:6',
             'nickname' => 'required|string|max:20',
+            'avatar' => 'nullable|array',
+            'avatar.head' => 'nullable|string',
+            'avatar.eyes' => 'nullable|string',
+            'avatar.hair' => 'nullable|string',
+            'avatar.beard' => 'nullable|string',
         ]);
 
         try {
             $result = $this->gameService->joinRoom(
                 strtoupper($validated['code']),
-                $validated['nickname']
+                $validated['nickname'],
+                $validated['avatar'] ?? null
             );
         } catch (\Exception $e) {
             // Return a 422 validation error directly instead of back()->withErrors().
