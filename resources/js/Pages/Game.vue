@@ -59,22 +59,21 @@ const isCreator = computed(() => {
 });
 
 const wordLabel = computed(() => {
-    if (localPlayer.value?.is_imposter) {
-        const myTurnIndex = localHintOrder.value.indexOf(props.player?.id);
-        return myTurnIndex === 0 ? t('your_hint') : t('your_word');
-    }
     return t('your_word');
 });
 
 const wordValue = computed(() => {
     if (localPlayer.value?.is_imposter) {
-        const myTurnIndex = localHintOrder.value.indexOf(props.player?.id);
-        if (myTurnIndex === 0) {
-            return localHintForImposter.value || '???';
-        }
         return '???';
     }
     return localWord.value || '';
+});
+
+const imposterHint = computed(() => {
+    if (localPlayer.value?.is_imposter && localHintForImposter.value) {
+        return localHintForImposter.value;
+    }
+    return null;
 });
 
 const hasSubmittedHint = computed(() => {
@@ -250,7 +249,8 @@ onUnmounted(() => {
                         <div class="text-4xl md:text-6xl wanted-text my-4 md:my-6 py-4 md:py-6" :class="localPlayer?.is_imposter ? 'text-[#8b2500]' : ''">
                             {{ wordValue }}
                         </div>
-                        <p v-if="localPlayer?.is_imposter" class="text-base md:text-2xl leading-relaxed text-[#8b2500]">{{ t('you_are_imposter') }}</p>
+                        <p v-if="imposterHint" class="text-sm md:text-lg leading-relaxed text-[#8b2500] mt-2">{{ t('imposter_hint') }}: {{ imposterHint }}</p>
+                        <p v-if="localPlayer?.is_imposter" class="text-base md:text-2xl leading-relaxed text-[#8b2500] mt-2">{{ t('you_are_imposter') }}</p>
                         <p v-else class="text-base md:text-2xl leading-relaxed max-w-md mx-auto">{{ t('vote_instruction') }}</p>
                     </div>
 
