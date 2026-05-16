@@ -33,6 +33,6 @@ function layerStyle(layer, filename) {
 </template>
 
 <style scoped>
-.avatar-display { position: relative; flex-shrink: 0; }
+.avatar-display { position: relative; flex-shrink: 0; overflow: hidden; border-radius: 10px; border: 2px solid #8b6914; background: #d3bfa1; }
 .avatar-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 </style>
