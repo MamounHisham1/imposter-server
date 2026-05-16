@@ -267,9 +267,9 @@ onUnmounted(() => {
                         </TransitionGroup>
 
                         <!-- Turn Indicators -->
-                        <div class="flex flex-wrap justify-center gap-2 md:gap-4 mt-4">
+                        <div class="flex flex-wrap justify-center gap-3 md:gap-4 mt-4">
                             <div v-for="p in orderedPlayers" :key="p.id"
-                                class="px-3 md:px-4 py-1.5 md:py-2 border shadow text-lg md:text-2xl transition-all relative flex items-center gap-2"
+                                class="px-3 md:px-4 py-2 md:py-3 border shadow text-sm md:text-lg transition-all relative flex flex-col items-center gap-1"
                                 :class="[
                                     localCurrentTurnPlayerId === p.id ? 'bg-[#8b2500] text-[#e8dcc4] border-[#4a1500] scale-110 z-10' :
                                     localHints.some(h => h.player_id === p.id) ? 'bg-[#d3bfa1] text-[#4a2511] border-[#8b4513]' :
@@ -277,8 +277,8 @@ onUnmounted(() => {
                                 ]"
                                 :style="`transform: rotate(${p.id % 2 === 0 ? '2deg' : '-2deg'});`"
                             >
-                                <AvatarDisplay :avatar="p.avatar" :size="32" />
-                                {{ p.nickname }}
+                                <AvatarDisplay :avatar="p.avatar" :size="48" />
+                                <span class="truncate max-w-[70px] md:max-w-[90px]">{{ p.nickname }}</span>
                                 <div v-if="localCurrentTurnPlayerId === p.id" class="absolute -top-3 -right-3 w-6 h-6 bg-[#d3bfa1] border-2 border-[#8b2500] rounded-full animate-bounce"></div>
                             </div>
                         </div>

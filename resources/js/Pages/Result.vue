@@ -163,10 +163,12 @@ function backToLobby() {
 
                             <!-- Imposter Reveal -->
                             <div class="mb-8">
-                                <p class="text-xl md:text-2xl text-gray-700 mb-2">{{ t('the_imposter_was') }}</p>
-                                <div class="inline-flex items-center gap-4 px-8 py-3 bg-[#8b2500] text-[#e8dcc4] text-4xl md:text-6xl border-4 border-[#4a1500] transform -rotate-2 shadow-lg">
-                                    <AvatarDisplay v-if="imposter?.avatar" :avatar="imposter.avatar" :size="80" />
-                                    {{ imposter?.nickname || '???' }}
+                                <p class="text-xl md:text-2xl text-gray-700 mb-4">{{ t('the_imposter_was') }}</p>
+                                <div class="flex flex-col items-center gap-3">
+                                    <AvatarDisplay v-if="imposter?.avatar" :avatar="imposter.avatar" :size="120" />
+                                    <div class="px-8 py-3 bg-[#8b2500] text-[#e8dcc4] text-4xl md:text-6xl border-4 border-[#4a1500] transform -rotate-2 shadow-lg">
+                                        {{ imposter?.nickname || '???' }}
+                                    </div>
                                 </div>
                             </div>
                         </div>

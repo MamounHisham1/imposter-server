@@ -133,10 +133,10 @@ onUnmounted(() => {
 
                     <!-- Player Grid -->
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <button v-for="p in players" :key="p.id" 
+                        <button v-for="p in players" :key="p.id"
                             @click="selectPlayer(p.id)"
                             :disabled="p.id === player.id || hasVoted"
-                            class="relative p-4 border-2 shadow transition-all duration-200"
+                            class="relative p-4 border-2 shadow transition-all duration-200 flex flex-col items-center gap-2"
                             :class="[
                                 p.id === player.id ? 'bg-[#d3bfa1]/50 border-dashed border-[#8b4513]/50 opacity-60 cursor-not-allowed' :
                                 selectedPlayerId === p.id ? 'bg-[#8b2500] text-[#e8dcc4] border-[#4a1500] scale-105 z-10' :
@@ -144,12 +144,10 @@ onUnmounted(() => {
                             ]"
                             :style="`transform: rotate(${p.id % 2 === 0 ? '1deg' : '-1deg'});`"
                         >
-                            <div class="flex items-center gap-2 mb-1">
-                                <AvatarDisplay :avatar="p.avatar" :size="48" />
-                                <span class="text-xl md:text-2xl font-bold">{{ p.nickname }}</span>
-                            </div>
-                            <div v-if="p.id === player.id" class="text-sm opacity-70">({{ t('you') }})</div>
-                            
+                            <AvatarDisplay :avatar="p.avatar" :size="80" />
+                            <span class="text-lg md:text-2xl font-bold truncate max-w-full">{{ p.nickname }}</span>
+                            <span v-if="p.id === player.id" class="text-sm opacity-70">({{ t('you') }})</span>
+
                             <!-- Crosshair / Stamp if selected -->
                             <div v-if="selectedPlayerId === p.id" class="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
                                 <svg class="w-16 h-16 text-[#e8dcc4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
