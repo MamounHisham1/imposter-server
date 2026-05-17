@@ -90,7 +90,8 @@ export const AVATAR_ITEMS = {
       "gemini_generated_image_9w5vsj9w5vsj9w5v-removebg-preview.png",
       "gemini_generated_image_56c94v56c94v56c9-removebg-preview.png",
       "gemini_generated_image_30nj2l30nj2l30nj-removebg-preview.png",
-      "gemini_generated_image_6ir6x36ir6x36ir6-removebg-preview.png"
+      "gemini_generated_image_6ir6x36ir6x36ir6-removebg-preview.png",
+      "background_removed_351b3540-bed0-4253-981a-e03ba91e7bfb_output.png"
     ],
     "beard": [
       "beard00.png",
@@ -117,7 +118,8 @@ export const AVATAR_ITEMS = {
       "picsart_26-05-17_05-59-09-025.png",
       "picsart_26-05-17_05-42-48-821.png",
       "picsart_26-05-17_05-46-34-073.png",
-      "picsart_26-05-17_05-45-55-806.png"
+      "picsart_26-05-17_05-45-55-806.png",
+      "beard2.png"
     ]
   }
 
@@ -259,6 +261,11 @@ export const AVATAR_ALIGNMENT = {
         "scale": 146,
         "x": 0,
         "y": 34
+      },
+      "background_removed_351b3540-bed0-4253-981a-e03ba91e7bfb_output.png": {
+        "scale": 108,
+        "x": 0,
+        "y": -24
       }
     },
     "beard": {
@@ -386,6 +393,11 @@ export const AVATAR_ALIGNMENT = {
         "scale": 10,
         "x": 0,
         "y": 80
+      },
+      "beard2.png": {
+        "scale": 88,
+        "x": 16,
+        "y": 46
       }
     }
   }
