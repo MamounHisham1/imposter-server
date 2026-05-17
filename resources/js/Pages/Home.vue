@@ -11,7 +11,7 @@ const { t, locale } = useI18n();
 const { error: toastError } = useToast();
 useErrorToasts();
 
-const { state: avatarState, heads: avatarHeads, selectHead, getFilename: getAvatarFilename, isNone, setNone, prevItem, nextItem, getAvatarData: buildAvatarData } = useAvatarBuilder();
+const { state: avatarState, heads: avatarHeads, selectHead, getFilename: getAvatarFilename, isNone, setNone, prevItem, nextItem, setGender, getAvatarData: buildAvatarData } = useAvatarBuilder();
 
 const avatarWrap = ref(null);
 const previewSize = ref(120);
@@ -200,6 +200,18 @@ function submitJoin() {
                             </div>
                         </div>
 
+                        <!-- Gender selector -->
+                        <div class="flex justify-center gap-3 mb-2">
+                            <button type="button" @click="setGender('male')" class="gender-btn male" :class="{ active: avatarState.gender === 'male' }">
+                                <span class="text-lg">&#9794;</span>
+                                <span class="text-xs">{{ t('male') }}</span>
+                            </button>
+                            <button type="button" @click="setGender('female')" class="gender-btn female" :class="{ active: avatarState.gender === 'female' }">
+                                <span class="text-lg">&#9792;</span>
+                                <span class="text-xs">{{ t('female') }}</span>
+                            </button>
+                        </div>
+
                         <!-- Selector rows -->
                         <div class="space-y-2">
                             <div v-for="layer in ['hair', 'eyes', 'beard']" :key="layer" class="selector-row">
@@ -326,6 +338,11 @@ function submitJoin() {
 .head-swatch:hover { border-color: #8b4513; }
 .head-swatch.active { border-color: #4a2511; box-shadow: 0 0 6px rgba(74,37,17,0.4); }
 .head-swatch img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.gender-btn { padding: 2px 10px; border-radius: 6px; border: 2px solid #b8a07e; background: #d3bfa1; color: #8b4513; font-family: 'Lalezar', cursive; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.gender-btn:hover { border-color: #8b4513; }
+.gender-btn.active { border-color: #4a2511; background: #8b4513; color: #e8dcc4; box-shadow: 0 0 6px rgba(74,37,17,0.3); }
+.gender-btn.male.active { background: #1a3a5c; border-color: #2a5a8c; color: #c8ddf5; box-shadow: 0 0 6px rgba(26,58,92,0.4); }
+.gender-btn.female.active { background: #5c1a3a; border-color: #8c2a5a; color: #f5c8dd; box-shadow: 0 0 6px rgba(92,26,58,0.4); }
 .selector-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; }
 .sel-label { color: #8b4513; font-size: 13px; width: 48px; text-align: center; }
 @media (min-width: 768px) { .sel-label { font-size: 15px; width: 55px; } }

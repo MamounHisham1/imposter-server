@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'gtm' => [
+        'id' => env('GTM_ID'),
+    ],
+
 ];

@@ -4,6 +4,62 @@ export const AVATAR_HEADS = [
   'head1.png', 'head2.png', 'head3.png', 'head4.png', 'head7.png', 'head8.png'
 ]
 
+export const AVATAR_GENDER = {
+    "eyes": {
+      "eye1.png": "male",
+      "eye001.png": "male",
+      "eye002.png": "male",
+      "eye006.png": "male",
+      "eye9.png": "male",
+      "gemini_generated_image_6ir6x36ir6x36ir6-removebg-preview.png": "female",
+      "gemini_generated_image_9w5vsj9w5vsj9w5v-removebg-preview.png": "female",
+      "gemini_generated_image_53o3h53o3h53o3h5-removebg-preview.png": "female",
+      "gemini_generated_image_56c94v56c94v56c9-removebg-preview.png": "female",
+      "gemini_generated_image_bklnwebklnwebkln-removebg-preview.png": "female",
+      "gemini_generated_image_i6aqyhi6aqyhi6aq-removebg-preview.png": "female",
+      "gemini_generated_image_mqo0s5mqo0s5mqo0-removebg-preview.png": "female"
+    },
+    "hair": {
+      "hair3.png": "male",
+      "hair5.png": "male",
+      "hair7.png": "female",
+      "hair8.png": "male",
+      "hair9.png": "female",
+      "hair10.png": "male",
+      "hair11.png": "male",
+      "hair12.png": "male",
+      "gemini_generated_image_6ir6x36ir6x36ir6-removebg-preview.png": "female",
+      "gemini_generated_image_9w5vsj9w5vsj9w5v-removebg-preview.png": "female",
+      "gemini_generated_image_56c94v56c94v56c9-removebg-preview.png": "female",
+      "gemini_generated_image_30nj2l30nj2l30nj-removebg-preview.png": "female",
+      "gemini_generated_image_mqo0s5mqo0s5mqo0-removebg-preview.png": "female"
+    },
+    "beard": {
+      "beard3.png": "male",
+      "beard001.png": "female",
+      "beard002.png": "male",
+      "beard4.png": "male",
+      "beard5.png": "male",
+      "beard6.png": "male",
+      "beard7.png": "male",
+      "beard9.png": "male",
+      "beard10.png": "male",
+      "beard12.png": "male",
+      "beard13.png": "male",
+      "picsart_26-05-17_05-36-48-992.png": "female",
+      "picsart_26-05-17_05-37-47-009.png": "female",
+      "picsart_26-05-17_05-38-12-527.png": "female",
+      "picsart_26-05-17_05-38-28-497.png": "female",
+      "picsart_26-05-17_05-38-51-621.png": "female",
+      "picsart_26-05-17_05-40-05-281.png": "female",
+      "picsart_26-05-17_05-42-48-821.png": "female",
+      "picsart_26-05-17_05-43-43-050.png": "female",
+      "picsart_26-05-17_05-45-55-806.png": "male",
+      "picsart_26-05-17_05-46-34-073.png": "female",
+      "picsart_26-05-17_05-59-09-025.png": "female"
+    }
+  }
+
 export const AVATAR_ITEMS = {
     "eyes": [
       "eye1.png",
