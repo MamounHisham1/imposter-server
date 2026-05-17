@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { getLayerStyle, AVATAR_BASE } from '../Composables/useAvatarConfig';
+import { getLayerStyle, AVATAR_BASE, AVATAR_ALIGNMENT, resolveImageFile } from '../Composables/useAvatarConfig';
 
 const props = defineProps({
     avatar: {
@@ -15,6 +15,29 @@ const props = defineProps({
 
 const av = computed(() => props.avatar || {});
 
+// Build a flat list of all layers to render, including duplicates
+const layers = computed(() => {
+    const result = [];
+    const order = ['beard', 'eyes', 'hair'];
+    for (const layer of order) {
+        const file = av.value[layer];
+        if (!file) continue;
+
+        // Main item
+        result.push({ layer, file, src: resolveImageFile(file) || file });
+
+        // Check for duplicates (e.g., beard3_dup1.png, beard3_dup2.png)
+        const baseName = file.replace('.png', '');
+        const alData = AVATAR_ALIGNMENT[layer] || {};
+        for (const key of Object.keys(alData)) {
+            if (key.startsWith(baseName + '_dup')) {
+                result.push({ layer, file: key, src: resolveImageFile(key) });
+            }
+        }
+    }
+    return result;
+});
+
 function layerStyle(layer, filename) {
     if (!filename) return { display: 'none' };
     const s = getLayerStyle(layer, filename, props.size);
@@ -26,9 +49,7 @@ function layerStyle(layer, filename) {
 <template>
     <div class="avatar-display" :class="{ lg: size >= 80 }" :style="{ width: size + 'px', height: size + 'px' }">
         <img v-if="av.head" :src="AVATAR_BASE + av.head" class="avatar-layer" />
-        <img v-if="av.beard" :src="AVATAR_BASE + av.beard" class="avatar-layer" :style="layerStyle('beard', av.beard)" />
-        <img v-if="av.eyes" :src="AVATAR_BASE + av.eyes" class="avatar-layer" :style="layerStyle('eyes', av.eyes)" />
-        <img v-if="av.hair" :src="AVATAR_BASE + av.hair" class="avatar-layer" :style="layerStyle('hair', av.hair)" />
+        <img v-for="l in layers" :key="l.file" :src="AVATAR_BASE + l.src" class="avatar-layer" :style="layerStyle(l.layer, l.file)" />
     </div>
 </template>
 
