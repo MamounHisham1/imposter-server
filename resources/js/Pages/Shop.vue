@@ -4,6 +4,7 @@ import { useForm, Link, router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import { AVATAR_BASE, getLayerStyle } from '../Composables/useAvatarConfig';
+import AvatarDisplay from '../Components/AvatarDisplay.vue';
 
 const { t } = useI18n();
 const { error: toastError, success: toastSuccess } = useToast();
@@ -101,9 +102,7 @@ function buyCostume(costumeId) {
                 <div v-else class="space-y-3">
                     <div v-for="costume in shopItems.costumes" :key="costume.id"
                         class="bg-[#d3bfa1]/50 border-2 border-dashed border-[#b8a07e] p-4 rounded-lg flex items-center gap-4">
-                        <div class="w-16 h-16 rounded-lg overflow-hidden bg-[#d3bfa1] border border-[#b8a07e] flex-shrink-0 relative">
-                            <img v-if="costume.head" :src="`/avatars/${costume.head}`" class="absolute inset-0 w-full h-full object-contain" />
-                        </div>
+                        <AvatarDisplay :avatar="{ head: costume.head, eyes: costume.items?.eyes, hair: costume.items?.hair, beard: costume.items?.beard }" :size="64" />
                         <div class="flex-1">
                             <div class="text-lg text-[#4a2511]">{{ costume.name }}</div>
                             <div class="text-sm text-[#8b6914]">{{ costume.price }} {{ t('credits') }}</div>

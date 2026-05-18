@@ -7,6 +7,7 @@ import { useErrorToasts } from '../Composables/useErrorToasts';
 import { useAvatarBuilder } from '../Composables/useAvatarBuilder';
 import { AVATAR_BASE, getLayerStyle, AVATAR_COSTUMES, AVATAR_PAID } from '../Composables/useAvatarConfig';
 import { useShop } from '../Composables/useShop';
+import AvatarDisplay from '../Components/AvatarDisplay.vue';
 
 const { t, locale } = useI18n();
 const { error: toastError } = useToast();
@@ -48,6 +49,8 @@ const props = defineProps({
 const localRooms = ref([...props.rooms]);
 const showSettings = ref(false);
 const showCostumes = ref(false);
+
+const avatarData = computed(() => buildAvatarData());
 
 // Fetch ownership data if user is logged in
 onMounted(async () => {
@@ -171,10 +174,7 @@ function submitJoin() {
             <span class="text-[#d3bfa1] text-sm font-sans">{{ auth.user.nickname }}</span>
             <a href="/shop" class="bg-[#8b6914] text-[#1a0e08] text-xs font-bold px-2 py-0.5 rounded-full no-underline hover:bg-[#a07818]">{{ auth.user.credits }} {{ t('credits') }}</a>
             <a href="/credits" class="text-[#8b6914] text-sm hover:text-[#d3bfa1] no-underline">{{ t('credits') }}</a>
-            <form method="POST" action="/logout" class="inline">
-                <input type="hidden" name="_token" :value="document.querySelector('meta[name=csrf-token]')?.content" />
-                <button type="submit" class="text-[#8b6914] text-sm hover:text-[#d3bfa1]">{{ t('logout') }}</button>
-            </form>
+            <button @click="router.post('/logout')" class="text-[#8b6914] text-sm hover:text-[#d3bfa1] cursor-pointer">{{ t('logout') }}</button>
         </div>
         <div v-else class="fixed top-3 right-3 z-50 flex items-center gap-2 bg-[#5c3a21] border-2 border-[#3a2010] rounded-lg px-3 py-2 shadow-lg">
             <a href="/login" class="text-[#d3bfa1] text-sm hover:text-[#f5e6d0]">{{ t('login') }}</a>
@@ -214,16 +214,16 @@ function submitJoin() {
                         <!-- Preview -->
                         <div class="flex justify-center mb-3">
                             <div class="avatar-preview-wrap" ref="avatarWrap">
-                                <img :src="`/avatars/${avatarHeads[avatarState.head] || avatarHeads[0]}`" class="avatar-layer" />
-                                <img v-if="getAvatarFilename('beard')" :src="`/avatars/${getAvatarFilename('beard')}`"
+                                <img :src="`/avatars/${avatarData.head || avatarHeads[0]}`" class="avatar-layer" />
+                                <img v-if="avatarData.beard" :src="`/avatars/${avatarData.beard}`"
                                     class="avatar-layer"
-                                    :style="getAvatarLayerStyle('beard', getAvatarFilename('beard'))" />
-                                <img v-if="getAvatarFilename('eyes')" :src="`/avatars/${getAvatarFilename('eyes')}`"
+                                    :style="getAvatarLayerStyle('beard', avatarData.beard)" />
+                                <img v-if="avatarData.eyes" :src="`/avatars/${avatarData.eyes}`"
                                     class="avatar-layer"
-                                    :style="getAvatarLayerStyle('eyes', getAvatarFilename('eyes'))" />
-                                <img v-if="getAvatarFilename('hair')" :src="`/avatars/${getAvatarFilename('hair')}`"
+                                    :style="getAvatarLayerStyle('eyes', avatarData.eyes)" />
+                                <img v-if="avatarData.hair" :src="`/avatars/${avatarData.hair}`"
                                     class="avatar-layer"
-                                    :style="getAvatarLayerStyle('hair', getAvatarFilename('hair'))" />
+                                    :style="getAvatarLayerStyle('hair', avatarData.hair)" />
                             </div>
                         </div>
 
@@ -238,18 +238,16 @@ function submitJoin() {
 
                         <!-- Gender selector -->
                         <div class="flex justify-center gap-3 mb-2">
-                            <button type="button" @click="showCostumes = false" class="gender-btn" :class="{ active: !showCostumes }">
-                                <span class="text-xs">{{ t('elements') }}</span>
-                            </button>
-                            <button type="button" @click="setGender('male')" class="gender-btn male" :class="{ active: !showCostumes && avatarState.gender === 'male' }">
+                            <button type="button" @click="showCostumes = false; setGender('male')" class="gender-btn male" :class="{ active: !showCostumes && avatarState.gender === 'male' }">
                                 <span class="text-lg">&#9794;</span>
                                 <span class="text-xs">{{ t('male') }}</span>
                             </button>
-                            <button type="button" @click="setGender('female')" class="gender-btn female" :class="{ active: !showCostumes && avatarState.gender === 'female' }">
+                            <button type="button" @click="showCostumes = false; setGender('female')" class="gender-btn female" :class="{ active: !showCostumes && avatarState.gender === 'female' }">
                                 <span class="text-lg">&#9792;</span>
                                 <span class="text-xs">{{ t('female') }}</span>
                             </button>
                             <button type="button" @click="showCostumes = true" class="gender-btn" :class="{ active: showCostumes }">
+                                <span class="text-lg">&#9827;</span>
                                 <span class="text-xs">{{ t('costumes') }}</span>
                             </button>
                         </div>
@@ -264,10 +262,8 @@ function submitJoin() {
                         <div v-if="showCostumes" class="flex justify-center gap-2 flex-wrap mb-3">
                             <div v-for="costume in AVATAR_COSTUMES" :key="costume.id"
                                 class="costume-thumb" :class="{ active: avatarState.activeCostume === costume.id, locked: !ownsCostume(costume.id) && auth.user }"
-                                @click="ownsCostume(costume.id) || !auth.user ? (ownsCostume(costume.id) ? selectCostume(costume.id) : null) : null">
-                                <div class="costume-mini-avatar">
-                                    <img v-if="costume.head" :src="`/avatars/${costume.head}`" />
-                                </div>
+                                @click="ownsCostume(costume.id) ? selectCostume(costume.id) : router.visit('/shop')">
+                                <AvatarDisplay :avatar="{ head: costume.head, eyes: costume.items?.eyes, hair: costume.items?.hair, beard: costume.items?.beard }" :size="48" />
                                 <div class="text-[9px] text-center mt-0.5 truncate w-full">{{ costume.name }}</div>
                                 <div v-if="!ownsCostume(costume.id) && auth.user" class="lock-overlay">
                                     <span>{{ costume.price }}</span>
