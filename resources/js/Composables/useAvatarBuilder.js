@@ -1,16 +1,15 @@
 import { ref, computed, watch } from 'vue'
-import { AVATAR_HEADS, AVATAR_ITEMS, AVATAR_GENDER } from './useAvatarConfig'
+import { AVATAR_HEADS, AVATAR_ITEMS, AVATAR_GENDER, AVATAR_PAID, AVATAR_COSTUMES } from './useAvatarConfig'
 
 const STORAGE_KEY = 'avatarBuilderState'
 
 function loadState() {
-  const fresh = () => ({ head: 0, gender: 'male', male: { eyes: null, hair: null, beard: null }, female: { eyes: null, hair: null, beard: null } })
+  const fresh = () => ({ head: 0, gender: 'male', male: { eyes: null, hair: null, beard: null }, female: { eyes: null, hair: null, beard: null }, activeCostume: null })
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
       if (parsed.head >= AVATAR_HEADS.length) parsed.head = 0
-      // Migrate old format (index-based) to new format (filename-based per gender)
       if (!parsed.male || !parsed.female) {
         const migrated = fresh()
         migrated.head = parsed.head || 0
@@ -33,6 +32,10 @@ function loadState() {
 
 const state = ref(loadState())
 
+// Ownership data (set by Home.vue after fetching from server)
+const ownedElements = ref(new Set())
+const ownedCostumes = ref(new Set())
+
 watch(state, (val) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(val))
 }, { deep: true })
@@ -44,6 +47,14 @@ function getFilteredItems(layer) {
     const g = genderMap[item]
     return !g || g === gender
   })
+}
+
+function isPaid(filename) {
+  return AVATAR_PAID && AVATAR_PAID[filename] !== undefined
+}
+
+function isLocked(filename) {
+  return isPaid(filename) && !ownedElements.value.has(filename)
 }
 
 export function useAvatarBuilder() {
@@ -66,26 +77,44 @@ export function useAvatarBuilder() {
   }
 
   function nextItem(layer) {
+    if (state.value.activeCostume) return
     const list = filteredItems.value[layer]
     if (!list.length) return
     const cur = getLayerIndex(layer)
-    const next = cur < 0 ? 0 : (cur + 1) % list.length
+    let next = cur < 0 ? 0 : (cur + 1) % list.length
+    // Skip locked items
+    let attempts = list.length
+    while (isLocked(list[next]) && attempts > 0) {
+      next = (next + 1) % list.length
+      attempts--
+    }
+    if (attempts <= 0) return
     getGenderSelections()[layer] = list[next]
   }
 
   function prevItem(layer) {
+    if (state.value.activeCostume) return
     const list = filteredItems.value[layer]
     if (!list.length) return
     const cur = getLayerIndex(layer)
-    const prev = cur < 0 ? list.length - 1 : (cur - 1 + list.length) % list.length
+    let prev = cur < 0 ? list.length - 1 : (cur - 1 + list.length) % list.length
+    // Skip locked items
+    let attempts = list.length
+    while (isLocked(list[prev]) && attempts > 0) {
+      prev = (prev - 1 + list.length) % list.length
+      attempts--
+    }
+    if (attempts <= 0) return
     getGenderSelections()[layer] = list[prev]
   }
 
   function setNone(layer) {
+    if (state.value.activeCostume) return
     getGenderSelections()[layer] = null
   }
 
   function selectHead(index) {
+    if (state.value.activeCostume) return
     state.value.head = index
   }
 
@@ -94,6 +123,17 @@ export function useAvatarBuilder() {
   }
 
   function getAvatarData() {
+    if (state.value.activeCostume) {
+      const costume = (AVATAR_COSTUMES || []).find(c => c.id === state.value.activeCostume)
+      if (costume) {
+        return {
+          head: costume.head,
+          eyes: costume.items?.eyes || null,
+          hair: costume.items?.hair || null,
+          beard: costume.items?.beard || null,
+        }
+      }
+    }
     const sel = getGenderSelections()
     return {
       head: AVATAR_HEADS[state.value.head] || AVATAR_HEADS[0],
@@ -117,6 +157,30 @@ export function useAvatarBuilder() {
     return getGenderSelections()[layer] || null
   }
 
+  function getItemStatus(layer, filename) {
+    if (!filename) return 'free'
+    if (!isPaid(filename)) return 'free'
+    if (ownedElements.value.has(filename)) return 'owned'
+    return 'locked'
+  }
+
+  function selectCostume(costumeId) {
+    const costume = (AVATAR_COSTUMES || []).find(c => c.id === costumeId)
+    if (!costume) return
+    state.value.activeCostume = costumeId
+  }
+
+  function clearCostume() {
+    state.value.activeCostume = null
+  }
+
+  const isCostumeLocked = computed(() => !!state.value.activeCostume)
+
+  function updateOwnership(elements, costumes) {
+    ownedElements.value = new Set(elements || [])
+    ownedCostumes.value = new Set(costumes || [])
+  }
+
   return {
     state,
     nextItem,
@@ -131,5 +195,14 @@ export function useAvatarBuilder() {
     heads: AVATAR_HEADS,
     items: AVATAR_ITEMS,
     filteredItems,
+    getItemStatus,
+    isLocked,
+    isPaid,
+    selectCostume,
+    clearCostume,
+    isCostumeLocked,
+    updateOwnership,
+    ownedElements,
+    ownedCostumes,
   }
 }

@@ -9,13 +9,16 @@ use App\Models\Player;
 use App\Models\Room;
 use App\Models\Round;
 use App\Models\Vote;
+use App\Services\CreditService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class GameService
 {
     public function __construct(
         private AiWordService $aiWordService,
         private RoomCleanupService $cleanupService,
+        private CreditService $creditService,
     ) {}
 
     private function cleanAllStale(): void
@@ -33,9 +36,9 @@ class GameService
      *
      * @return array Data for broadcasting to frontend.
      */
-    public function createRoom(string $nickname, string $type, int $maxPlayers, int $roundsPerGame, string $language = 'en', ?array $avatar = null): array
+    public function createRoom(string $nickname, string $type, int $maxPlayers, int $roundsPerGame, string $language = 'en', ?array $avatar = null, ?int $userId = null): array
     {
-        return DB::transaction(function () use ($nickname, $type, $maxPlayers, $roundsPerGame, $language, $avatar) {
+        return DB::transaction(function () use ($nickname, $type, $maxPlayers, $roundsPerGame, $language, $avatar, $userId) {
             $room = Room::create([
                 'code' => Room::generateCode(),
                 'type' => $type,
@@ -49,6 +52,7 @@ class GameService
             $player = Player::create([
                 'nickname' => $nickname,
                 'room_id' => $room->id,
+                'user_id' => $userId,
                 'is_ready' => false,
                 'is_imposter' => false,
                 'score' => 0,
@@ -80,7 +84,7 @@ class GameService
      *
      * @throws \Exception
      */
-    public function joinRoom(string $code, string $nickname, ?array $avatar = null): array
+    public function joinRoom(string $code, string $nickname, ?array $avatar = null, ?int $userId = null): array
     {
         $room = Room::where('code', strtoupper($code))->first();
 
@@ -110,6 +114,7 @@ class GameService
         $player = Player::create([
             'nickname' => $nickname,
             'room_id' => $room->id,
+            'user_id' => $userId,
             'is_ready' => false,
             'is_imposter' => false,
             'score' => 0,
@@ -374,6 +379,24 @@ class GameService
             $room->update(['status' => 'finished']);
 
             $players = $room->players()->orderByDesc('score')->get();
+
+            // Credit rewards: crew wins when imposter flees
+            foreach ($remainingPlayers as $p) {
+                if (! $p->user_id) {
+                    continue;
+                }
+                try {
+                    $user = $p->user;
+                    $this->creditService->rewardGameEvent($user, 'game_played');
+                    $this->creditService->rewardGameEvent($user, 'win_as_crew');
+                } catch (\Throwable $e) {
+                    Log::warning('Credit reward failed', [
+                        'player_id' => $p->id,
+                        'user_id' => $p->user_id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
 
             broadcast(new GameEvent($roomId, 'imposter_fled', [
                 'room' => $this->formatRoom($room->fresh()),
@@ -1026,13 +1049,47 @@ class GameService
                 'vote_tally' => $roundResults['vote_tally'],
             ]);
 
-            // Check if game is over
+            // Award credit rewards when game ends
             $isGameOver = $currentRound->round_number >= $room->rounds_per_game;
 
             if ($isGameOver) {
                 $room->update(['status' => 'finished']);
 
                 $players = $room->players()->orderByDesc('score')->get();
+
+                // Credit rewards for registered users
+                $winner = $roundResults['winner'];
+                foreach ($room->players as $player) {
+                    if (! $player->user_id) {
+                        continue;
+                    }
+                    try {
+                        $user = $player->user;
+                        $this->creditService->rewardGameEvent($user, 'game_played');
+
+                        if ($player->is_imposter && $winner === 'imposter') {
+                            $this->creditService->rewardGameEvent($user, 'win_as_imposter');
+                        } elseif (! $player->is_imposter && $winner === 'crew') {
+                            $this->creditService->rewardGameEvent($user, 'win_as_crew');
+                        }
+
+                        // Correct vote: crew member who voted for the imposter (only when imposter was caught)
+                        if ($imposterCaught && ! $player->is_imposter) {
+                            $votedCorrectly = $votes->contains(
+                                fn ($v) => $v->voter_id === $player->id && $v->target_id === $imposter->id
+                            );
+                            if ($votedCorrectly) {
+                                $this->creditService->rewardGameEvent($user, 'correct_vote');
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('Credit reward failed', [
+                            'player_id' => $player->id,
+                            'user_id' => $player->user_id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
 
                 broadcast(new GameEvent($room->id, 'game_over', [
                     'room' => $this->formatRoom($room->fresh()),

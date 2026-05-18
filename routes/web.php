@@ -1,10 +1,23 @@
 <?php
 
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CreditController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\RoomController;
+use App\Http\Controllers\ShopController;
+use App\Http\Controllers\SocialAuthController;
 use App\Models\Player;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// Auth
+Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+Route::post('/login', [AuthController::class, 'login']);
+Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::get('/auth/google', [SocialAuthController::class, 'redirect']);
+Route::get('/auth/google/callback', [SocialAuthController::class, 'callback']);
 
 Route::post('/locale', function (Request $request) {
     $locale = $request->validate(['locale' => 'required|in:en,ar'])['locale'];
@@ -16,6 +29,15 @@ Route::post('/locale', function (Request $request) {
 
 Route::get('/', [RoomController::class, 'index'])->name('home');
 Route::inertia('/install', 'Install')->name('install');
+
+// Credits & Shop (auth required)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/credits', [CreditController::class, 'index'])->name('credits');
+    Route::get('/shop', [ShopController::class, 'index'])->name('shop');
+    Route::post('/shop/buy/element', [ShopController::class, 'buyElement'])->name('shop.buy.element');
+    Route::post('/shop/buy/costume', [ShopController::class, 'buyCostume'])->name('shop.buy.costume');
+    Route::get('/api/inventory', [ShopController::class, 'inventory'])->name('api.inventory');
+});
 
 Route::post('/room', [RoomController::class, 'store'])->name('room.store');
 Route::post('/room/join', [RoomController::class, 'join'])->name('room.join');

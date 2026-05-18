@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\GameService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -44,7 +45,8 @@ class RoomController extends Controller
                 $validated['max_players'],
                 $validated['rounds_per_game'],
                 $validated['language'],
-                $validated['avatar'] ?? null
+                $validated['avatar'] ?? null,
+                Auth::id()
             );
         } catch (\Exception $e) {
             throw ValidationException::withMessages([
@@ -77,7 +79,8 @@ class RoomController extends Controller
             $result = $this->gameService->joinRoom(
                 strtoupper($validated['code']),
                 $validated['nickname'],
-                $validated['avatar'] ?? null
+                $validated['avatar'] ?? null,
+                Auth::id()
             );
         } catch (\Exception $e) {
             // Return a 422 validation error directly instead of back()->withErrors().

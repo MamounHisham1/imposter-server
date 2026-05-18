@@ -9,6 +9,7 @@ class Player extends Model
     protected $fillable = [
         'nickname',
         'room_id',
+        'user_id',
         'is_ready',
         'is_imposter',
         'score',
@@ -26,6 +27,11 @@ class Player extends Model
     public function room()
     {
         return $this->belongsTo(Room::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function hints()

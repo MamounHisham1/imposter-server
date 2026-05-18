@@ -5,13 +5,15 @@ import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import { useErrorToasts } from '../Composables/useErrorToasts';
 import { useAvatarBuilder } from '../Composables/useAvatarBuilder';
-import { AVATAR_BASE, getLayerStyle } from '../Composables/useAvatarConfig';
+import { AVATAR_BASE, getLayerStyle, AVATAR_COSTUMES, AVATAR_PAID } from '../Composables/useAvatarConfig';
+import { useShop } from '../Composables/useShop';
 
 const { t, locale } = useI18n();
 const { error: toastError } = useToast();
 useErrorToasts();
 
-const { state: avatarState, heads: avatarHeads, selectHead, getFilename: getAvatarFilename, isNone, setNone, prevItem, nextItem, setGender, getAvatarData: buildAvatarData } = useAvatarBuilder();
+const { state: avatarState, heads: avatarHeads, selectHead, getFilename: getAvatarFilename, isNone, setNone, prevItem, nextItem, setGender, getAvatarData: buildAvatarData, getItemStatus, isLocked, isCostumeLocked, selectCostume, clearCostume, updateOwnership } = useAvatarBuilder();
+const { fetchInventory, ownsCostume } = useShop();
 
 const avatarWrap = ref(null);
 const previewSize = ref(120);
@@ -37,10 +39,28 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    auth: {
+        type: Object,
+        default: () => ({ user: null }),
+    },
 });
 
 const localRooms = ref([...props.rooms]);
 const showSettings = ref(false);
+const showCostumes = ref(false);
+
+// Fetch ownership data if user is logged in
+onMounted(async () => {
+    if (props.auth?.user) {
+        try {
+            const resp = await fetch('/api/inventory');
+            if (resp.ok) {
+                const data = await resp.json();
+                updateOwnership(data.elements, data.costumes);
+            }
+        } catch {}
+    }
+});
 
 onMounted(() => {
     if (window.Echo) {
@@ -145,7 +165,23 @@ function submitJoin() {
 <template>
     <div class="min-h-screen flex flex-col items-center justify-center p-2 md:p-4">
         <Toast />
-        
+
+        <!-- Auth Widget -->
+        <div v-if="auth.user" class="fixed top-3 right-3 z-50 flex items-center gap-3 bg-[#5c3a21] border-2 border-[#3a2010] rounded-lg px-3 py-2 shadow-lg">
+            <span class="text-[#d3bfa1] text-sm font-sans">{{ auth.user.nickname }}</span>
+            <a href="/shop" class="bg-[#8b6914] text-[#1a0e08] text-xs font-bold px-2 py-0.5 rounded-full no-underline hover:bg-[#a07818]">{{ auth.user.credits }} {{ t('credits') }}</a>
+            <a href="/credits" class="text-[#8b6914] text-sm hover:text-[#d3bfa1] no-underline">{{ t('credits') }}</a>
+            <form method="POST" action="/logout" class="inline">
+                <input type="hidden" name="_token" :value="document.querySelector('meta[name=csrf-token]')?.content" />
+                <button type="submit" class="text-[#8b6914] text-sm hover:text-[#d3bfa1]">{{ t('logout') }}</button>
+            </form>
+        </div>
+        <div v-else class="fixed top-3 right-3 z-50 flex items-center gap-2 bg-[#5c3a21] border-2 border-[#3a2010] rounded-lg px-3 py-2 shadow-lg">
+            <a href="/login" class="text-[#d3bfa1] text-sm hover:text-[#f5e6d0]">{{ t('login') }}</a>
+            <span class="text-[#8b6914]">|</span>
+            <a href="/register" class="text-[#d3bfa1] text-sm hover:text-[#f5e6d0]">{{ t('register') }}</a>
+        </div>
+
         <div class="text-center mb-4 md:mb-8 flex flex-col items-center">
             <img :src="'/logo.png'" alt="Traitor Logo" class="w-40 h-40 md:w-64 md:h-64 object-contain drop-shadow-2xl" />
             <button @click="switchLocale" class="western-btn-alt mt-3 px-5 py-1 text-lg md:text-xl border-2 cursor-pointer tracking-wide">
@@ -202,18 +238,48 @@ function submitJoin() {
 
                         <!-- Gender selector -->
                         <div class="flex justify-center gap-3 mb-2">
-                            <button type="button" @click="setGender('male')" class="gender-btn male" :class="{ active: avatarState.gender === 'male' }">
+                            <button type="button" @click="showCostumes = false" class="gender-btn" :class="{ active: !showCostumes }">
+                                <span class="text-xs">{{ t('elements') }}</span>
+                            </button>
+                            <button type="button" @click="setGender('male')" class="gender-btn male" :class="{ active: !showCostumes && avatarState.gender === 'male' }">
                                 <span class="text-lg">&#9794;</span>
                                 <span class="text-xs">{{ t('male') }}</span>
                             </button>
-                            <button type="button" @click="setGender('female')" class="gender-btn female" :class="{ active: avatarState.gender === 'female' }">
+                            <button type="button" @click="setGender('female')" class="gender-btn female" :class="{ active: !showCostumes && avatarState.gender === 'female' }">
                                 <span class="text-lg">&#9792;</span>
                                 <span class="text-xs">{{ t('female') }}</span>
                             </button>
+                            <button type="button" @click="showCostumes = true" class="gender-btn" :class="{ active: showCostumes }">
+                                <span class="text-xs">{{ t('costumes') }}</span>
+                            </button>
                         </div>
 
-                        <!-- Selector rows -->
-                        <div class="space-y-2">
+                        <!-- Active costume banner -->
+                        <div v-if="isCostumeLocked" class="flex justify-center items-center gap-2 mb-2 p-2 bg-[#8b5cf6]/20 border border-[#8b5cf6] rounded-lg">
+                            <span class="text-sm text-[#8b5cf6]">{{ t('costume_locked') }}</span>
+                            <button type="button" @click="clearCostume()" class="text-xs text-[#8b2500] underline">{{ t('cancel') }}</button>
+                        </div>
+
+                        <!-- Costumes grid -->
+                        <div v-if="showCostumes" class="flex justify-center gap-2 flex-wrap mb-3">
+                            <div v-for="costume in AVATAR_COSTUMES" :key="costume.id"
+                                class="costume-thumb" :class="{ active: avatarState.activeCostume === costume.id, locked: !ownsCostume(costume.id) && auth.user }"
+                                @click="ownsCostume(costume.id) || !auth.user ? (ownsCostume(costume.id) ? selectCostume(costume.id) : null) : null">
+                                <div class="costume-mini-avatar">
+                                    <img v-if="costume.head" :src="`/avatars/${costume.head}`" />
+                                </div>
+                                <div class="text-[9px] text-center mt-0.5 truncate w-full">{{ costume.name }}</div>
+                                <div v-if="!ownsCostume(costume.id) && auth.user" class="lock-overlay">
+                                    <span>{{ costume.price }}</span>
+                                </div>
+                            </div>
+                            <div v-if="AVATAR_COSTUMES.length === 0" class="text-xs text-[#8b6914] py-2">
+                                No costumes available yet
+                            </div>
+                        </div>
+
+                        <!-- Selector rows (hidden when costumes tab or locked costume) -->
+                        <div v-if="!showCostumes && !isCostumeLocked" class="space-y-2">
                             <div v-for="layer in ['hair', 'eyes', 'beard']" :key="layer" class="selector-row">
                                 <button class="sel-btn" @click="prevItem(layer)" type="button">&#8249;</button>
                                 <span class="sel-label">{{ t('avatar_' + layer) }}</span>
@@ -353,4 +419,11 @@ function submitJoin() {
 @media (min-width: 768px) { .none-btn { width: 38px; height: 38px; font-size: 11px; } }
 .none-btn:hover { border-color: #8b4513; }
 .none-btn.active { background: #8b4513; color: #e8dcc4; border-color: #4a1500; }
+.costume-thumb { width: 56px; border-radius: 6px; border: 2px solid #b8a07e; background: #d3bfa1; padding: 4px; cursor: pointer; transition: all 0.15s; position: relative; }
+.costume-thumb:hover { border-color: #8b4513; }
+.costume-thumb.active { border-color: #8b5cf6; box-shadow: 0 0 8px rgba(139,92,246,0.3); }
+.costume-thumb.locked { opacity: 0.6; cursor: not-allowed; }
+.costume-mini-avatar { width: 100%; aspect-ratio: 1; border-radius: 4px; background: #d3bfa1; overflow: hidden; position: relative; }
+.costume-mini-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.lock-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #8b6914; font-size: 11px; font-weight: bold; font-family: sans-serif; }
 </style>
