@@ -3,11 +3,14 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
+import { useSound } from '../Composables/useSound';
 import GameLayout from '../layouts/GameLayout.vue';
 import AvatarDisplay from '../Components/AvatarDisplay.vue';
+import GameChat from '../Components/GameChat.vue';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
+const { playTurnNotification, playHintSubmitted, playTimerLow, playTimerExpired, playNewRound, playChatMessage, playVotingStarted } = useSound();
 
 const props = defineProps({
     room: Object,
@@ -30,6 +33,10 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    spectator_imposter: {
+        type: Object,
+        default: null,
+    },
     hint_order: {
         type: Array,
         default: () => [],
@@ -49,6 +56,18 @@ const props = defineProps({
     turn_started_at: {
         type: String,
         default: null,
+    },
+    chat_messages: {
+        type: Array,
+        default: () => [],
+    },
+    hint_cycle: {
+        type: Number,
+        default: 1,
+    },
+    previous_hints_by_cycle: {
+        type: Object,
+        default: () => ({}),
     },
 });
 
@@ -71,13 +90,19 @@ const hintInput = ref('');
 const localRound = ref(props.current_round || props.round || null);
 const localWord = ref(props.word || null);
 const localHintForImposter = ref(props.hint_for_imposter || null);
+const localSpectatorImposter = ref(props.spectator_imposter || null);
+const localHintCycle = ref(props.hint_cycle || 1);
+const localPreviousHintsByCycle = ref(props.previous_hints_by_cycle || {});
 const alertMessage = ref('');
 
 // Keep local reactive state in sync with Inertia props.
 // On slow connections, Inertia may deliver/update props after the initial
 // ref() initialization (e.g., deferred partial reloads, navigation races).
-watch(() => props.current_turn_player_id, (newVal) => {
+watch(() => props.current_turn_player_id, (newVal, oldVal) => {
     if (newVal != null) localCurrentTurnPlayerId.value = toNumericId(newVal);
+    if (newVal != null && toNumericId(newVal) === toNumericId(props.player?.id) && toNumericId(oldVal) !== toNumericId(newVal)) {
+        playTurnNotification();
+    }
 });
 watch(() => props.hints, (newVal) => {
     if (newVal && newVal.length > 0) localHints.value = [...newVal];
@@ -110,6 +135,12 @@ watch(() => props.turn_started_at, (newVal) => {
         startHintTimer();
     }
 });
+watch(() => props.hint_cycle, (newVal) => {
+    if (newVal !== undefined) localHintCycle.value = newVal;
+});
+watch(() => props.previous_hints_by_cycle, (newVal) => {
+    if (newVal) localPreviousHintsByCycle.value = newVal;
+});
 
 // Timer logic for hint phase (20s per turn)
 const HINT_TIMER_SECONDS = 20;
@@ -125,7 +156,12 @@ function updateHintTimer() {
     const elapsed = (Date.now() - turnStartedAt.value.getTime()) / 1000;
     hintTimeLeft.value = Math.max(0, Math.ceil(HINT_TIMER_SECONDS - elapsed));
 
+    if (hintTimeLeft.value === 5 && isMyTurn.value && !hasSubmittedHint.value) {
+        playTimerLow();
+    }
+
     if (hintTimeLeft.value <= 0 && isMyTurn.value && !hasSubmittedHint.value) {
+        playTimerExpired();
         clearInterval(hintTimerInterval);
         hintTimerInterval = null;
         // Auto-skip: call skip endpoint
@@ -149,7 +185,14 @@ const wordLabel = computed(() => {
     return t('your_word');
 });
 
+const isSpectator = computed(() => {
+    return localPlayer.value?.is_spectator === true;
+});
+
 const wordValue = computed(() => {
+    if (isSpectator.value) {
+        return localWord.value || '';
+    }
     if (localPlayer.value?.is_imposter) {
         return '???';
     }
@@ -157,6 +200,9 @@ const wordValue = computed(() => {
 });
 
 const imposterHint = computed(() => {
+    if (isSpectator.value && localHintForImposter.value) {
+        return localHintForImposter.value;
+    }
     if (localPlayer.value?.is_imposter && localHintForImposter.value) {
         return localHintForImposter.value;
     }
@@ -171,6 +217,29 @@ const hasSubmittedHint = computed(() => {
 const sortedHints = computed(() => {
     return [...localHints.value].reverse();
 });
+
+// Previous hint cycles (cycles before the current one)
+const previousCycles = computed(() => {
+    const all = localPreviousHintsByCycle.value || {};
+    const current = localHintCycle.value;
+    const entries = Object.entries(all)
+        .map(([cycle, hints]) => ({ cycle: Number(cycle), hints }))
+        .filter(({ cycle }) => cycle < current)
+        .sort((a, b) => b.cycle - a.cycle);
+    return entries;
+});
+
+const expandedPreviousCycles = ref(new Set());
+
+function togglePreviousCycle(cycle) {
+    if (expandedPreviousCycles.value.has(cycle)) {
+        expandedPreviousCycles.value.delete(cycle);
+    } else {
+        expandedPreviousCycles.value.add(cycle);
+    }
+    // Trigger reactivity
+    expandedPreviousCycles.value = new Set(expandedPreviousCycles.value);
+}
 
 const isMyTurn = computed(() => {
     if (localCurrentTurnPlayerId.value == null || props.player?.id == null) return false;
@@ -200,6 +269,7 @@ function submitHint() {
             preserveScroll: true,
             onSuccess: () => {
                 hintInput.value = '';
+                playHintSubmitted();
             },
             onError: (errors) => {
                 const msg = Object.values(errors)[0];
@@ -257,6 +327,8 @@ onMounted(() => {
                         break;
                     case 'hint_submitted':
                         if (e.hints) localHints.value = e.hints;
+                        if (e.previous_hints_by_cycle) localPreviousHintsByCycle.value = e.previous_hints_by_cycle;
+                        if (e.hint_cycle) localHintCycle.value = e.hint_cycle;
                         if (e.next_player_id !== undefined) localCurrentTurnPlayerId.value = toNumericId(e.next_player_id);
                         if (e.hint_order) localHintOrder.value = e.hint_order;
                         turnStartedAt.value = new Date();
@@ -264,6 +336,8 @@ onMounted(() => {
                         break;
                     case 'hints_complete':
                         if (e.hints) localHints.value = e.hints;
+                        if (e.previous_hints_by_cycle) localPreviousHintsByCycle.value = e.previous_hints_by_cycle;
+                        if (e.hint_cycle) localHintCycle.value = e.hint_cycle;
                         localHintsComplete.value = true;
                         localCurrentTurnPlayerId.value = null;
                         localPhaseVotes.value = {};
@@ -274,7 +348,8 @@ onMounted(() => {
                         if (e.room?.phase_votes) localPhaseVotes.value = e.room.phase_votes;
                         break;
                     case 'round_complete':
-                        if (e.hints) localHints.value = [];
+                        if (e.previous_hints_by_cycle) localPreviousHintsByCycle.value = e.previous_hints_by_cycle;
+                        if (e.hint_cycle) localHintCycle.value = e.hint_cycle;
                         if (e.current_round) localRound.value = e.current_round;
                         if (e.word !== undefined) localWord.value = e.word;
                         if (e.hint_for_imposter !== undefined) localHintForImposter.value = e.hint_for_imposter;
@@ -293,6 +368,7 @@ onMounted(() => {
                         startHintTimer();
                         break;
                     case 'next_round':
+                        playNewRound();
                         localHints.value = [];
                         localHintsComplete.value = false;
                         localCurrentTurnPlayerId.value = null;
@@ -302,6 +378,7 @@ onMounted(() => {
                         router.visit('/game/' + props.room.code);
                         break;
                     case 'voting_started':
+                        playVotingStarted();
                         router.visit('/game/' + props.room.code + '/vote');
                         break;
                     case 'imposter_fled':
@@ -363,23 +440,49 @@ onUnmounted(() => {
                 <div class="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
 
                 <div class="wanted-poster p-4 md:p-12 md:transform md:rotate-1">
+                    <!-- Spectator Banner -->
+                    <div v-if="isSpectator" class="text-center mb-4 py-3 bg-[#8b4513]/20 border-2 border-dashed border-[#8b4513]">
+                        <span class="text-lg md:text-2xl text-[#8b4513] wanted-text">{{ t('spectating') }}</span>
+                        <span v-if="localSpectatorImposter" class="block text-sm md:text-base text-[#8b2500] mt-1">{{ t('spectator_imposter_is') }}: {{ localSpectatorImposter.nickname }}</span>
+                    </div>
+
                     <header class="text-center border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-4 md:mb-8">
                         <h2 class="text-xl md:text-3xl tracking-widest text-[#8b4513]">{{ t('round') }} {{ localRound?.round_number || round?.round_number || 1 }}</h2>
                     </header>
 
                     <!-- The Word Display -->
                     <div class="text-center mb-6 md:mb-10">
-                        <div class="text-4xl md:text-6xl wanted-text my-4 md:my-6 py-4 md:py-6" :class="localPlayer?.is_imposter ? 'text-[#8b2500]' : ''">
+                        <div class="text-4xl md:text-6xl wanted-text my-4 md:my-6 py-4 md:py-6" :class="localPlayer?.is_imposter ? 'text-[#8b2500]' : isSpectator ? 'text-[#1b4a1b]' : ''">
                             {{ wordValue }}
                         </div>
                         <p v-if="imposterHint" class="text-sm md:text-lg leading-relaxed text-[#8b2500] mt-2">{{ t('imposter_hint') }}: {{ imposterHint }}</p>
-                        <p v-if="localPlayer?.is_imposter" class="text-base md:text-2xl leading-relaxed text-[#8b2500] mt-2">{{ t('you_are_imposter') }}</p>
+                        <p v-if="isSpectator" class="text-base md:text-2xl leading-relaxed text-[#1b4a1b] max-w-md mx-auto">{{ t('spectator_message') }}</p>
+                        <p v-else-if="localPlayer?.is_imposter" class="text-base md:text-2xl leading-relaxed text-[#8b2500] mt-2">{{ t('you_are_imposter') }}</p>
                         <p v-else class="text-base md:text-2xl leading-relaxed max-w-md mx-auto">{{ t('vote_instruction') }}</p>
+                    </div>
+
+                    <!-- Previous Hints (from earlier cycles) -->
+                    <div v-if="previousCycles.length > 0" class="mt-6 mb-4">
+                        <div v-for="prev in previousCycles" :key="prev.cycle" class="mb-3">
+                            <button @click="togglePreviousCycle(prev.cycle)" class="w-full text-center text-sm md:text-base text-[#8b4513] py-1 border-b border-dashed border-[#8b4513]/50 cursor-pointer hover:text-[#8b2500]">
+                                {{ expandedPreviousCycles.has(prev.cycle) ? '\u25BC' : '\u25B6' }} {{ t('hints_round') }} #{{ prev.cycle }} ({{ prev.hints.length }} {{ t('hints').toLowerCase() }})
+                            </button>
+                            <div v-if="expandedPreviousCycles.has(prev.cycle)" class="space-y-2 mt-2 max-h-32 overflow-y-auto pr-2 scrollbar-western">
+                                <div v-for="hint in prev.hints" :key="hint.id" class="flex items-center gap-2 bg-[#d3bfa1]/50 p-2 border border-[#8b4513]/40 transform -rotate-0.5">
+                                    <span class="text-sm md:text-base font-bold text-[#8b2500]/70 w-1/4 truncate">{{ hint.player_nickname }}</span>
+                                    <span class="text-base md:text-lg flex-1 text-[#4a2511]/70">{{ hint.content }}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Turn Order & Submitted Hints -->
                     <div class="mt-8 md:mt-12 pt-6 md:pt-8 border-t-2 border-[#8b4513]">
-                        <h3 class="text-2xl md:text-3xl wanted-text mb-4 text-center">{{ t('hints') }}</h3>
+                        <h3 class="text-2xl md:text-3xl wanted-text mb-4 text-center">
+                            {{ t('hints') }}
+                            <span v-if="localHintCycle > 1" class="text-lg md:text-xl text-[#8b2500]"> #{{ localHintCycle }}</span>
+                        </h3>
+                        <p v-if="localHintCycle > 1" class="text-center text-sm md:text-base text-[#8b4513] mb-3">{{ t('submit_new_hint') }}</p>
                         
                         <!-- List of Hints -->
                         <TransitionGroup v-if="localHints.length > 0" name="hint-slide" tag="div" class="space-y-3 mb-6 max-h-48 overflow-y-auto pr-2 scrollbar-western">
@@ -407,8 +510,8 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <!-- Hint Input Area -->
-                    <div v-if="!localHintsComplete && isMyTurn && !hasSubmittedHint" class="flex flex-col md:flex-row gap-4 md:gap-6 items-end mt-6 md:mt-12 bg-[#8b4513]/10 p-4 border-2 border-dashed border-[#8b4513]">
+                    <!-- Hint Input Area (spectators cannot submit hints) -->
+                    <div v-if="!isSpectator && !localHintsComplete && isMyTurn && !hasSubmittedHint" class="flex flex-col md:flex-row gap-4 md:gap-6 items-end mt-6 md:mt-12 bg-[#8b4513]/10 p-4 border-2 border-dashed border-[#8b4513]">
                         <div class="flex-1 w-full">
                             <label class="block text-lg md:text-xl mb-1 md:mb-2 text-right">{{ t('your_hint') }}</label>
                             <input v-model="hintInput" @keyup.enter="submitHint" type="text" class="western-input w-full text-2xl md:text-4xl py-1 md:py-2 px-2 md:px-4" placeholder="قل ما لديك..." maxlength="100" />
@@ -431,8 +534,8 @@ onUnmounted(() => {
                         <p v-else>{{ t('waiting_for_players') }}</p>
                     </div>
 
-                    <!-- Phase Voting when hints complete -->
-                    <div v-if="localHintsComplete" class="mt-8 pt-6 border-t border-dashed border-[#8b4513]">
+                    <!-- Phase Voting when hints complete (spectators cannot vote) -->
+                    <div v-if="localHintsComplete && !isSpectator" class="mt-8 pt-6 border-t border-dashed border-[#8b4513]">
                         <template v-if="!hasPhaseVoted">
                             <p class="text-center text-lg md:text-xl text-[#8b4513] mb-4">{{ t('phase_vote_prompt') }}</p>
                             <div class="flex flex-col sm:flex-row gap-4">
@@ -447,6 +550,12 @@ onUnmounted(() => {
                 </div>
             </div>
         </div>
+        <GameChat
+            :room-id="room?.id"
+            :room-code="room?.code"
+            :player-id="player?.id"
+            :messages="chat_messages"
+        />
     </GameLayout>
 </template>
 

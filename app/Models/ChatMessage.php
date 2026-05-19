@@ -4,18 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Hint extends Model
+class ChatMessage extends Model
 {
     protected $fillable = [
-        'round_id',
+        'room_id',
         'player_id',
-        'hint_cycle',
-        'content',
+        'message',
     ];
 
-    public function round()
+    public function room()
     {
-        return $this->belongsTo(Round::class);
+        return $this->belongsTo(Room::class);
     }
 
     public function player()

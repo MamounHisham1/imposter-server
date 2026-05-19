@@ -85,6 +85,12 @@ onMounted(() => {
                         }
                         if (e.room) localRoom.value = e.room;
                         break;
+                    case 'spectator_joined':
+                        if (e.player && !localPlayers.value.find((p) => p.id === e.player.id)) {
+                            localPlayers.value.push(e.player);
+                        }
+                        if (e.room) localRoom.value = e.room;
+                        break;
                     case 'player_left':
                         localPlayers.value = localPlayers.value.filter((p) => p.id !== e.player_id);
                         if (e.room) localRoom.value = e.room;
@@ -141,13 +147,14 @@ onUnmounted(() => {
                         <div class="flex flex-wrap justify-center gap-3 md:gap-4">
                             <div v-for="p in localPlayers" :key="p.id"
                                 class="px-3 md:px-4 py-3 border shadow text-base md:text-xl transition-all relative flex flex-col items-center gap-2"
-                                :class="p.is_ready ? 'bg-[#8b4513] text-[#e8dcc4] border-[#4a2511]' : 'bg-[#d3bfa1] text-[#4a2511] border-[#8b4513] opacity-80'"
+                                :class="p.is_spectator ? 'bg-[#1b4a1b]/20 text-[#4a2511] border-dashed border-[#1b4a1b]/50' : p.is_ready ? 'bg-[#8b4513] text-[#e8dcc4] border-[#4a2511]' : 'bg-[#d3bfa1] text-[#4a2511] border-[#8b4513] opacity-80'"
                                 :style="`transform: rotate(${p.id % 2 === 0 ? '2deg' : '-2deg'});`"
                             >
                                 <button v-if="isCreator && p.id !== player.id" @click="kickPlayer(p.id)" class="absolute -top-2 -left-2 w-6 h-6 bg-red-700 text-white rounded-full text-xs flex items-center justify-center shadow hover:bg-red-900 z-10" :title="t('kick_player')">&times;</button>
                                 <AvatarDisplay :avatar="p.avatar" :size="56" />
                                 <span class="truncate max-w-[80px] md:max-w-[100px]">{{ p.nickname }}</span>
-                                <span v-if="p.id === localRoom.creator_id" class="text-xs absolute -top-2 -right-2 bg-yellow-500 text-black px-1 rounded transform rotate-12">الزعيم</span>
+                                <span v-if="p.is_spectator" class="text-xs absolute -top-2 -right-2 bg-[#1b4a1b] text-[#e8dcc4] px-1 rounded transform rotate-12">{{ t('spectating') }}</span>
+                                <span v-else-if="p.id === localRoom.creator_id" class="text-xs absolute -top-2 -right-2 bg-yellow-500 text-black px-1 rounded transform rotate-12">الزعيم</span>
                                 <span v-if="p.id === player.id" class="text-xs text-black/50">({{ t('you') }})</span>
                             </div>
                         </div>

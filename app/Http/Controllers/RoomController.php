@@ -31,6 +31,8 @@ class RoomController extends Controller
             'max_players' => 'required|integer|min:3|max:10',
             'rounds_per_game' => 'required|integer|min:1|max:5',
             'language' => 'required|in:en,ar',
+            'category' => 'nullable|string|in:animals,food,places,technology,sports,nature,professions,music,vehicles',
+            'difficulty' => 'nullable|string|in:easy,medium,hard',
             'avatar' => 'nullable|array',
             'avatar.head' => 'nullable|string',
             'avatar.eyes' => 'nullable|string',
@@ -46,7 +48,9 @@ class RoomController extends Controller
                 $validated['rounds_per_game'],
                 $validated['language'],
                 $validated['avatar'] ?? null,
-                Auth::id()
+                Auth::id(),
+                $validated['category'] ?? null,
+                $validated['difficulty'] ?? 'medium'
             );
         } catch (\Exception $e) {
             throw ValidationException::withMessages([
@@ -58,6 +62,8 @@ class RoomController extends Controller
             'player_id' => $result['player']['id'],
             'room_id' => $result['room']['id'],
             'locale' => $validated['language'],
+            'player_nickname' => $validated['nickname'],
+            'player_avatar' => $validated['avatar'] ?? null,
         ]);
 
         return redirect()->route('room.show', $result['room']['code']);
@@ -96,6 +102,8 @@ class RoomController extends Controller
             'player_id' => $result['player']['id'],
             'room_id' => $result['room']['id'],
             'locale' => $result['room']['language'],
+            'player_nickname' => $validated['nickname'],
+            'player_avatar' => $validated['avatar'] ?? null,
         ]);
 
         return redirect()->route('room.show', $result['room']['code']);
@@ -113,9 +121,42 @@ class RoomController extends Controller
         try {
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
-            session()->forget(['player_id', 'room_id']);
+            // Player record gone (stale cleanup, etc.) — try to reconnect
+            $room = \App\Models\Room::where('code', strtoupper($code))->first();
+            if ($room && $room->id == $roomId && in_array($room->status, ['playing', 'voting', 'round_result'])) {
+                $nickname = session('player_nickname');
+                $avatar = session('player_avatar');
+                if ($nickname) {
+                    try {
+                        $result = $this->gameService->reconnectPlayer(
+                            $roomId,
+                            $nickname,
+                            $avatar,
+                            Auth::id()
+                        );
+                        session([
+                            'player_id' => $result['player']['id'],
+                            'room_id' => $result['room']['id'],
+                        ]);
+                        $state = $this->gameService->getGameState(
+                            $result['room']['id'],
+                            $result['player']['id']
+                        );
+                    } catch (\Exception $re) {
+                        session()->forget(['player_id', 'room_id']);
 
-            return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
+                        return redirect()->route('home')->withErrors(['error' => $re->getMessage()]);
+                    }
+                } else {
+                    session()->forget(['player_id', 'room_id']);
+
+                    return redirect()->route('home');
+                }
+            } else {
+                session()->forget(['player_id', 'room_id']);
+
+                return redirect()->route('home')->withErrors(['error' => $e->getMessage()]);
+            }
         }
 
         if ($state['room']['status'] === 'waiting' || $state['room']['status'] === 'ready') {

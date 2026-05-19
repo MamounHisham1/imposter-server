@@ -13,6 +13,8 @@ class Room extends Model
         'max_players',
         'rounds_per_game',
         'language',
+        'category',
+        'difficulty',
         'current_round',
         'word_pool',
         'phase_votes',

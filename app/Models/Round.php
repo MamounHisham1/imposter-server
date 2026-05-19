@@ -16,6 +16,7 @@ class Round extends Model
         'imposter_caught',
         'vote_tally',
         'hint_order',
+        'hint_cycle',
         'turn_started_at',
         'voting_started_at',
     ];
@@ -25,6 +26,7 @@ class Round extends Model
         'imposter_caught' => 'boolean',
         'vote_tally' => 'array',
         'hint_order' => 'array',
+        'hint_cycle' => 'integer',
         'turn_started_at' => 'datetime',
         'voting_started_at' => 'datetime',
     ];

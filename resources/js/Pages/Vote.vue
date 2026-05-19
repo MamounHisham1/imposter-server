@@ -1,13 +1,16 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
+import { useSound } from '../Composables/useSound';
 import GameLayout from '../layouts/GameLayout.vue';
 import AvatarDisplay from '../Components/AvatarDisplay.vue';
+import GameChat from '../Components/GameChat.vue';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
+const { playVotingStarted, playVoteSubmitted, playTimerLow, playTimerExpired } = useSound();
 
 const props = defineProps({
     room: Object,
@@ -25,11 +28,19 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    chat_messages: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const selectedPlayerId = ref(null);
 const hasVoted = ref(false);
 const alertMessage = ref('');
+
+const isSpectator = computed(() => {
+    return props.player?.is_spectator === true;
+});
 
 // Voting timer (30s)
 const VOTE_TIMER_SECONDS = 30;
@@ -42,7 +53,12 @@ function updateVoteTimer() {
     const elapsed = (Date.now() - startedAt.getTime()) / 1000;
     voteTimeLeft.value = Math.max(0, Math.ceil(VOTE_TIMER_SECONDS - elapsed));
 
+    if (voteTimeLeft.value === 5) {
+        playTimerLow();
+    }
+
     if (voteTimeLeft.value <= 0) {
+        playTimerExpired();
         clearInterval(voteTimerInterval);
         voteTimerInterval = null;
         // Auto-timeout: trigger resolution
@@ -71,6 +87,7 @@ function submitVote() {
     if (!selectedPlayerId.value || hasVoted.value) return;
 
     hasVoted.value = true;
+    playVoteSubmitted();
 
     router.post(
         '/game/' + props.room.code + '/vote',
@@ -87,6 +104,9 @@ function submitVote() {
 
 // Start vote timer on load
 startVoteTimer();
+
+// Sound: voting has started
+playVotingStarted();
 
 // Echo listeners
 onMounted(() => {
@@ -153,6 +173,11 @@ onUnmounted(() => {
                 <div class="absolute bottom-2 right-2 md:bottom-4 md:right-4 w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-800 shadow-sm border border-gray-900"></div>
 
                 <div class="wanted-poster p-4 md:p-10 md:transform md:rotate-1">
+                    <!-- Spectator Banner -->
+                    <div v-if="isSpectator" class="text-center mb-4 py-3 bg-[#8b4513]/20 border-2 border-dashed border-[#8b4513]">
+                        <span class="text-lg md:text-2xl text-[#8b4513] wanted-text">{{ t('spectating') }}</span>
+                    </div>
+
                     <header class="text-center border-b-2 md:border-b-4 border-double border-[#8b4513] pb-4 md:pb-6 mb-6 md:mb-8">
                         <h2 class="text-xl md:text-3xl tracking-widest mb-1 md:mb-2 text-[#8b4513]">{{ t('round') }} {{ round?.round_number || 1 }}</h2>
                         <h1 class="text-5xl md:text-7xl wanted-text uppercase">{{ t('vote_now') }}</h1>
@@ -177,9 +202,10 @@ onUnmounted(() => {
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <button v-for="p in players" :key="p.id"
                             @click="selectPlayer(p.id)"
-                            :disabled="p.id === player.id || hasVoted"
+                            :disabled="p.id === player.id || hasVoted || isSpectator"
                             class="relative p-4 border-2 shadow transition-all duration-200 flex flex-col items-center gap-2"
                             :class="[
+                                isSpectator ? 'bg-[#d3bfa1]/50 border-dashed border-[#8b4513]/50 cursor-not-allowed' :
                                 p.id === player.id ? 'bg-[#d3bfa1]/50 border-dashed border-[#8b4513]/50 opacity-60 cursor-not-allowed' :
                                 selectedPlayerId === p.id ? 'bg-[#8b2500] text-[#e8dcc4] border-[#4a1500] scale-105 z-10' :
                                 'bg-[#d3bfa1] text-[#4a2511] border-[#8b4513] hover:bg-[#c4af8e]'
@@ -203,14 +229,23 @@ onUnmounted(() => {
                         </button>
                     </div>
 
-                    <div class="mt-8 pt-6 border-t border-dashed border-[#8b4513]">
+                    <div v-if="!isSpectator" class="mt-8 pt-6 border-t border-dashed border-[#8b4513]">
                         <button @click="submitVote" :disabled="!selectedPlayerId || hasVoted" class="western-btn text-2xl md:text-4xl px-6 py-4 w-full disabled:opacity-50 disabled:cursor-not-allowed">
                             {{ hasVoted ? t('vote_submitted') : t('submit_vote') }}
                         </button>
                     </div>
+                    <div v-else class="mt-8 pt-6 border-t border-dashed border-[#8b4513] text-center">
+                        <p class="text-xl md:text-2xl text-[#8b4513] animate-pulse">{{ t('spectator_vote_message') }}</p>
+                    </div>
                 </div>
             </div>
         </div>
+        <GameChat
+            :room-id="room?.id"
+            :room-code="room?.code"
+            :player-id="player?.id"
+            :messages="chat_messages"
+        />
     </GameLayout>
 </template>
 

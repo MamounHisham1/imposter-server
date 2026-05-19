@@ -103,8 +103,12 @@ const createForm = useForm({
     max_players: 6,
     rounds_per_game: 3,
     language: 'ar',
+    category: null,
+    difficulty: 'medium',
     avatar: {},
 });
+
+const categories = ['animals', 'food', 'places', 'technology', 'sports', 'nature', 'professions', 'music', 'vehicles'];
 
 const joinForm = useForm({
     code: '',
@@ -174,6 +178,7 @@ function submitJoin() {
             <span class="text-[#d3bfa1] text-sm font-sans">{{ auth.user.nickname }}</span>
             <a href="/shop" class="bg-[#8b6914] text-[#1a0e08] text-xs font-bold px-2 py-0.5 rounded-full no-underline hover:bg-[#a07818]">{{ auth.user.credits }} {{ t('credits') }}</a>
             <a href="/credits" class="text-[#8b6914] text-sm hover:text-[#d3bfa1] no-underline">{{ t('credits') }}</a>
+            <a href="/stats" class="text-[#8b6914] text-sm hover:text-[#d3bfa1] no-underline">{{ t('stats') }}</a>
             <button @click="router.post('/logout')" class="text-[#8b6914] text-sm hover:text-[#d3bfa1] cursor-pointer">{{ t('logout') }}</button>
         </div>
         <div v-else class="fixed top-3 right-3 z-50 flex items-center gap-2 bg-[#5c3a21] border-2 border-[#3a2010] rounded-lg px-3 py-2 shadow-lg">
@@ -299,6 +304,21 @@ function submitJoin() {
                             <div class="flex gap-2">
                                 <button type="button" @click="createForm.language = 'ar'" class="western-btn-alt px-4 py-1 flex-1 text-xl border-2" :class="createForm.language === 'ar' ? 'selected-opt' : ''">{{ t('arabic') }}</button>
                                 <button type="button" @click="createForm.language = 'en'" class="western-btn-alt px-4 py-1 flex-1 text-xl border-2" :class="createForm.language === 'en' ? 'selected-opt' : ''">{{ t('english') }}</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-lg mb-1 text-[#4a2511]">{{ t('category') }}:</label>
+                            <div class="flex flex-wrap gap-1.5 justify-center">
+                                <button type="button" @click="createForm.category = null" class="western-btn-alt px-3 py-1 text-sm border-2" :class="createForm.category === null ? 'selected-opt' : ''">{{ t('category_random') }}</button>
+                                <button type="button" v-for="cat in categories" :key="cat" @click="createForm.category = cat" class="western-btn-alt px-3 py-1 text-sm border-2" :class="createForm.category === cat ? 'selected-opt' : ''">{{ t('category_' + cat) }}</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-lg mb-1 text-[#4a2511]">{{ t('difficulty') }}:</label>
+                            <div class="flex gap-2">
+                                <button type="button" @click="createForm.difficulty = 'easy'" class="western-btn-alt px-4 py-1 flex-1 text-xl border-2" :class="createForm.difficulty === 'easy' ? 'selected-opt' : ''">{{ t('difficulty_easy') }}</button>
+                                <button type="button" @click="createForm.difficulty = 'medium'" class="western-btn-alt px-4 py-1 flex-1 text-xl border-2" :class="createForm.difficulty === 'medium' ? 'selected-opt' : ''">{{ t('difficulty_medium') }}</button>
+                                <button type="button" @click="createForm.difficulty = 'hard'" class="western-btn-alt px-4 py-1 flex-1 text-xl border-2" :class="createForm.difficulty === 'hard' ? 'selected-opt' : ''">{{ t('difficulty_hard') }}</button>
                             </div>
                         </div>
                         <div>

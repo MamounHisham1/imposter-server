@@ -6,6 +6,7 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SocialAuthController;
+use App\Http\Controllers\StatsController;
 use App\Models\Player;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +30,7 @@ Route::post('/locale', function (Request $request) {
 
 Route::get('/', [RoomController::class, 'index'])->name('home');
 Route::inertia('/install', 'Install')->name('install');
+Route::get('/stats', [StatsController::class, 'index'])->name('stats');
 
 // Credits & Shop (auth required)
 Route::middleware(['auth'])->group(function () {
@@ -56,6 +58,7 @@ Route::post('/heartbeat', function (Request $request) {
 });
 
 Route::get('/game/{code}', [GameController::class, 'show'])->name('game.show');
+Route::post('/game/{code}/reconnect', [GameController::class, 'reconnect'])->name('game.reconnect');
 Route::post('/game/{code}/hint', [GameController::class, 'submitHint'])->name('game.hint');
 Route::post('/game/{code}/skip-hint', [GameController::class, 'skipHint'])->name('game.skip-hint');
 Route::post('/game/{code}/next-round', [GameController::class, 'nextRound'])->name('game.next-round');
@@ -66,3 +69,5 @@ Route::post('/game/{code}/vote', [GameController::class, 'submitVote'])->name('g
 Route::post('/game/{code}/timeout-vote', [GameController::class, 'timeoutVote'])->name('game.timeout-vote');
 Route::get('/game/{code}/result', [GameController::class, 'result'])->name('result.show');
 Route::post('/game/{code}/next-round-result', [GameController::class, 'nextRoundFromResult'])->name('game.next-round-result');
+Route::post('/game/{code}/rematch', [GameController::class, 'rematch'])->name('game.rematch');
+Route::post('/game/{code}/chat', [GameController::class, 'sendChat'])->name('game.chat');

@@ -19,4 +19,5 @@ return [
     'cannot_kick_self' => "You can't kick yourself out of your own saloon!",
     'invalid_phase_vote' => "That ain't a valid choice, partner.",
     'timer_not_expired' => "Hold your horses! The timer ain't up yet.",
+    'game_not_finished' => "The game ain't over yet, partner. Can't start a rematch now.",
 ];

@@ -11,9 +11,16 @@ use Illuminate\Support\Facades\DB;
 
 class RoomCleanupService
 {
+    /**
+     * Purge stale players from a specific room.
+     * During active games (playing/voting/round_result), uses a longer 5-minute timeout
+     * to allow players time to reconnect. During waiting, uses the standard 60s timeout.
+     */
     public function purgeStalePlayers(Room $room, bool $broadcastGameEvents): CleanupResult
     {
-        $staleThreshold = now()->subSeconds(60);
+        $isMidGame = in_array($room->status, ['playing', 'voting', 'round_result']);
+        $timeoutSeconds = $isMidGame ? 300 : 60;
+        $staleThreshold = now()->subSeconds($timeoutSeconds);
 
         $stalePlayerIds = $room->players()
             ->where(function ($q) use ($staleThreshold) {
@@ -31,17 +38,54 @@ class RoomCleanupService
         return DB::transaction(fn () => $this->removePlayersFromRoom($room, $stalePlayerIds, $broadcastGameEvents));
     }
 
+    /**
+     * Purge stale players across all rooms.
+     * Uses per-room timeout: 5 minutes during active games, 60 seconds during waiting.
+     */
     public function purgeStalePlayersFromAllRooms(bool $broadcastGameEvents): void
     {
-        $staleThreshold = now()->subSeconds(60);
+        // Process rooms grouped by status to apply correct timeouts
+        $midGameStatuses = ['playing', 'voting', 'round_result'];
+        $waitingStatuses = ['waiting', 'finished'];
 
-        $stalePlayerIds = Player::where(function ($q) use ($staleThreshold) {
-            $q->where('last_heartbeat_at', '<', $staleThreshold)
-                ->orWhereNull('last_heartbeat_at');
-        })
-            ->where('created_at', '<', $staleThreshold)
-            ->pluck('id');
+        // Mid-game rooms: 5-minute timeout
+        $midGameThreshold = now()->subSeconds(300);
+        $midGameRoomIds = Room::whereIn('status', $midGameStatuses)->pluck('id');
 
+        if ($midGameRoomIds->isNotEmpty()) {
+            $stalePlayerIds = Player::where(function ($q) use ($midGameThreshold) {
+                $q->where('last_heartbeat_at', '<', $midGameThreshold)
+                    ->orWhereNull('last_heartbeat_at');
+            })
+                ->where('created_at', '<', $midGameThreshold)
+                ->whereIn('room_id', $midGameRoomIds)
+                ->pluck('id');
+
+            $this->purgePlayersByRoom($stalePlayerIds, $broadcastGameEvents);
+        }
+
+        // Waiting/finished rooms: standard 60-second timeout
+        $standardThreshold = now()->subSeconds(60);
+        $waitingRoomIds = Room::whereIn('status', $waitingStatuses)->pluck('id');
+
+        if ($waitingRoomIds->isNotEmpty()) {
+            $stalePlayerIds = Player::where(function ($q) use ($standardThreshold) {
+                $q->where('last_heartbeat_at', '<', $standardThreshold)
+                    ->orWhereNull('last_heartbeat_at');
+            })
+                ->where('created_at', '<', $standardThreshold)
+                ->whereIn('room_id', $waitingRoomIds)
+                ->pluck('id');
+
+            $this->purgePlayersByRoom($stalePlayerIds, $broadcastGameEvents);
+        }
+    }
+
+    /**
+     * Given a collection of stale player IDs, group them by room and purge.
+     */
+    private function purgePlayersByRoom($stalePlayerIds, bool $broadcastGameEvents): void
+    {
         if ($stalePlayerIds->isEmpty()) {
             return;
         }
