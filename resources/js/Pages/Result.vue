@@ -322,7 +322,9 @@ function backToLobby() {
                                                 <AvatarDisplay v-if="vd.voterAvatar" :avatar="vd.voterAvatar" :size="24" />
                                             </div>
                                             <div class="flex-shrink-0 w-7 h-7 rounded-full bg-[#8b2500] flex items-center justify-center">
-                                                <svg class="w-3.5 h-3.5 text-[#e8dcc4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                                <svg :class="['w-3.5 h-3.5 text-[#e8dcc4] transition-transform duration-200', room?.language === 'ar' ? 'rotate-180' : '']" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                                                </svg>
                                             </div>
                                             <div class="flex items-center gap-1.5 min-w-0 flex-1">
                                                 <AvatarDisplay v-if="vd.targetAvatar" :avatar="vd.targetAvatar" :size="24" />
