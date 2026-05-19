@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
+import { router, useForm, Head } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import GameLayout from '../layouts/GameLayout.vue';
@@ -126,6 +126,9 @@ onUnmounted(() => {
 </script>
 
 <template>
+    <Head>
+        <meta name="robots" content="noindex, nofollow" head-key="robots" />
+    </Head>
     <GameLayout :room-code="room.code" :active-game="false">
         <Toast />
         <div class="min-h-screen flex items-center justify-center p-2 md:p-4">

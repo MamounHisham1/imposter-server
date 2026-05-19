@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Middleware\AddLinkHeaders;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\MarkdownNegotiation;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            MarkdownNegotiation::class,
+            AddLinkHeaders::class,
             HandleInertiaRequests::class,
         ]);
         $middleware->validateCsrfTokens(except: [

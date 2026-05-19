@@ -1,10 +1,11 @@
 <script setup>
 import { computed } from 'vue';
-import { useForm, Link, router } from '@inertiajs/vue3';
+import { useForm, Link, router, Head } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import { AVATAR_BASE, getLayerStyle } from '../Composables/useAvatarConfig';
 import AvatarDisplay from '../Components/AvatarDisplay.vue';
+import NavBar from '../Components/NavBar.vue';
 
 const { t } = useI18n();
 const { error: toastError, success: toastSuccess } = useToast();
@@ -53,10 +54,19 @@ function buyCostume(costumeId) {
 </script>
 
 <template>
+    <Head>
+        <title>Avatar Shop — Traitor (الخائن) Game</title>
+        <meta name="description" content="Customize your Traitor game avatar! Buy hairstyles, eyewear, chin styles, and costumes with credits. Personalize your Wild West character." head-key="description" />
+    </Head>
     <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <NavBar />
+
         <div class="wanted-poster p-6 md:p-8 max-w-2xl w-full">
             <div class="flex justify-between items-center border-b-2 border-dashed border-[#8b4513] pb-4 mb-6">
-                <Link href="/" class="text-[#8b4513] text-lg hover:underline">{{ t('back_to_lobby') }}</Link>
+                <Link href="/" class="flex items-center gap-1.5 px-3 py-1.5 border-2 border-[#8b4513] bg-[#d3bfa1] text-[#4a2511] font-bold text-sm uppercase tracking-wider transition-all hover:bg-[#c4af8e] hover:shadow-md active:translate-y-px no-underline" title="Home">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" /></svg>
+                    <span class="hidden sm:inline">{{ t('back_to_lobby') }}</span>
+                </Link>
                 <h1 class="text-3xl wanted-text uppercase">{{ t('shop') }}</h1>
                 <Link href="/credits" class="western-btn-alt px-3 py-1 border-2 text-sm flex items-center gap-1">
                     <span class="font-sans font-bold">{{ credits }}</span> {{ t('credits') }}

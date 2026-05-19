@@ -161,6 +161,13 @@
   "spectator_vote_message": "You are spectating this vote",
   "spectator_joined": "A spectator joined",
   "spectator_left": "A spectator left",
+  "the_word_was": "THE SECRET WORD",
+  "imposter_hint_label": "Traitor's Clue",
+  "hints_given": "CLUES GIVEN",
+  "who_voted_for_whom": "WHO VOTED FOR WHOM",
+  "final_scores": "FINAL SCORES",
+  "scoreboard": "SCOREBOARD",
+  "pts": "pts",
   "hints_round": "Hints Round",
   "previous_hints": "Previous Hints",
   "submit_new_hint": "Submit a different word this time!"

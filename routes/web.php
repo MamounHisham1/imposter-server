@@ -7,9 +7,22 @@ use App\Http\Controllers\RoomController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\WellKnownController;
 use App\Models\Player;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// Agent discovery (.well-known)
+Route::get('/.well-known/api-catalog', [WellKnownController::class, 'apiCatalog'])->name('well-known.api-catalog');
+Route::get('/.well-known/agent-skills/index.json', [WellKnownController::class, 'agentSkillsIndex'])->name('well-known.agent-skills');
+
+// Dynamic sitemap
+Route::get('/sitemap.xml', [WellKnownController::class, 'sitemap'])->name('sitemap');
+
+// SEO content pages
+Route::inertia('/how-to-play', 'HowToPlay')->name('how-to-play');
+Route::inertia('/faq', 'Faq')->name('faq');
+Route::inertia('/about', 'About')->name('about');
 
 // Auth
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');

@@ -33,6 +33,7 @@ class HandleInertiaRequests extends Middleware
     {
         return array_merge(parent::share($request), [
             'locale' => app()->getLocale(),
+            'baseUrl' => config('app.url'),
             'auth' => function () use ($request) {
                 $user = $request->user();
 

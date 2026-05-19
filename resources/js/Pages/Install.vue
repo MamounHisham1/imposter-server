@@ -1,9 +1,12 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { router } from '@inertiajs/vue3';
+import { router, Head, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import NavBar from '../Components/NavBar.vue';
 
 const { t, locale } = useI18n();
+const baseUrl = computed(() => usePage().props.baseUrl || '');
 
 const deferredPrompt = ref(null);
 const showInstallBtn = ref(false);
@@ -47,12 +50,20 @@ function toggleLanguage() {
 </script>
 
 <template>
+    <Head>
+        <title>How to Play Traitor (الخائن) — Rules & Install Guide</title>
+        <meta name="description" content="Learn how to play Traitor (al-Khaina) — the free online social deduction party game. Read the rules, understand the game mechanics, and install the app on your phone." head-key="description" />
+        <meta property="og:title" content="How to Play Traitor — Rules & Install Guide" head-key="og_title" />
+        <meta property="og:description" content="Learn the rules of Traitor, the free online social deduction word game. One player is the secret imposter — can you find them?" head-key="og_description" />
+    </Head>
     <div class="min-h-screen flex flex-col items-center p-2 md:p-6 pb-10">
-        
+        <NavBar />
+
         <!-- Header Controls -->
         <div class="w-full max-w-3xl flex justify-between items-center mb-6 z-10 px-2 mt-4">
-            <button @click="goHome" class="western-btn-alt px-4 py-2 border-2 text-lg">
-                {{ t('back_to_lobby') || 'العودة' }}
+            <button @click="goHome" class="flex items-center gap-1.5 px-3 py-1.5 border-2 border-[#8b4513] bg-[#d3bfa1] text-[#4a2511] font-bold text-sm uppercase tracking-wider transition-all hover:bg-[#c4af8e] hover:shadow-md active:translate-y-px" title="Home">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" /></svg>
+                <span class="hidden sm:inline">{{ t('back_to_lobby') }}</span>
             </button>
             <button @click="toggleLanguage" class="western-btn-alt px-4 py-2 border-2 text-lg">
                 {{ locale === 'ar' ? 'English' : 'العربية' }}

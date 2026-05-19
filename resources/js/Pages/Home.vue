@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
+import { router, useForm, Head, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import { useErrorToasts } from '../Composables/useErrorToasts';
@@ -8,8 +8,10 @@ import { useAvatarBuilder } from '../Composables/useAvatarBuilder';
 import { AVATAR_BASE, getLayerStyle, AVATAR_COSTUMES, AVATAR_PAID } from '../Composables/useAvatarConfig';
 import { useShop } from '../Composables/useShop';
 import AvatarDisplay from '../Components/AvatarDisplay.vue';
+import NavBar from '../Components/NavBar.vue';
 
 const { t, locale } = useI18n();
+const baseUrl = computed(() => usePage().props.baseUrl || '');
 const { error: toastError } = useToast();
 useErrorToasts();
 
@@ -170,22 +172,19 @@ function submitJoin() {
 </script>
 
 <template>
+    <Head>
+        <title>Traitor (الخائن) — Free Online Social Deduction Party Game</title>
+        <meta name="description" content="Play Traitor (al-Khaina) — a free online multiplayer social deduction word game. One player is secretly the imposter. Give one-word clues, vote to find the traitor. Play with friends in Arabic or English!" head-key="description" />
+        <meta property="og:title" content="Traitor (الخائن) — Free Online Social Deduction Party Game" head-key="og_title" />
+        <meta property="og:description" content="Find the imposter among your friends! Free real-time multiplayer social deduction word game with Wild West theme. Play now in Arabic or English." head-key="og_description" />
+        <meta property="og:image" :content="baseUrl + '/logo-512.png'" head-key="og_image" />
+        <meta name="twitter:card" content="summary_large_image" head-key="twitter_card" />
+    </Head>
     <div class="min-h-screen flex flex-col items-center justify-center p-2 md:p-4">
         <Toast />
 
-        <!-- Auth Widget -->
-        <div v-if="auth.user" class="fixed top-3 right-3 z-50 flex items-center gap-3 bg-[#5c3a21] border-2 border-[#3a2010] rounded-lg px-3 py-2 shadow-lg">
-            <span class="text-[#d3bfa1] text-sm font-sans">{{ auth.user.nickname }}</span>
-            <a href="/shop" class="bg-[#8b6914] text-[#1a0e08] text-xs font-bold px-2 py-0.5 rounded-full no-underline hover:bg-[#a07818]">{{ auth.user.credits }} {{ t('credits') }}</a>
-            <a href="/credits" class="text-[#8b6914] text-sm hover:text-[#d3bfa1] no-underline">{{ t('credits') }}</a>
-            <a href="/stats" class="text-[#8b6914] text-sm hover:text-[#d3bfa1] no-underline">{{ t('stats') }}</a>
-            <button @click="router.post('/logout')" class="text-[#8b6914] text-sm hover:text-[#d3bfa1] cursor-pointer">{{ t('logout') }}</button>
-        </div>
-        <div v-else class="fixed top-3 right-3 z-50 flex items-center gap-2 bg-[#5c3a21] border-2 border-[#3a2010] rounded-lg px-3 py-2 shadow-lg">
-            <a href="/login" class="text-[#d3bfa1] text-sm hover:text-[#f5e6d0]">{{ t('login') }}</a>
-            <span class="text-[#8b6914]">|</span>
-            <a href="/register" class="text-[#d3bfa1] text-sm hover:text-[#f5e6d0]">{{ t('register') }}</a>
-        </div>
+        <!-- Nav Bar -->
+        <NavBar />
 
         <div class="text-center mb-4 md:mb-8 flex flex-col items-center">
             <img :src="'/logo.png'" alt="Traitor Logo" class="w-40 h-40 md:w-64 md:h-64 object-contain drop-shadow-2xl" />
@@ -382,6 +381,22 @@ function submitJoin() {
                 </div>
             </div>
         </div>
+
+        <!-- SEO Footer -->
+        <footer class="max-w-5xl w-full mt-8 text-center text-[#8b6914] text-sm space-y-2 pb-4">
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="/how-to-play" class="hover:text-[#d3bfa1]">{{ locale === 'ar' ? 'كيف تلعب' : 'How to Play' }}</a>
+                <span>|</span>
+                <a href="/faq" class="hover:text-[#d3bfa1]">{{ locale === 'ar' ? 'الأسئلة الشائعة' : 'FAQ' }}</a>
+                <span>|</span>
+                <a href="/about" class="hover:text-[#d3bfa1]">{{ locale === 'ar' ? 'عن اللعبة' : 'About' }}</a>
+                <span>|</span>
+                <a href="/install" class="hover:text-[#d3bfa1]">{{ locale === 'ar' ? 'تثبيت التطبيق' : 'Install App' }}</a>
+                <span>|</span>
+                <a href="/stats" class="hover:text-[#d3bfa1]">{{ locale === 'ar' ? 'الإحصائيات' : 'Stats' }}</a>
+            </div>
+            <p class="text-[#8b6914]/60">{{ locale === 'ar' ? 'الخائن — لعبة استنتاج اجتماعي مجانية' : 'Traitor (al-Khaina) — Free Social Deduction Game' }}</p>
+        </footer>
     </div>
 </template>
 

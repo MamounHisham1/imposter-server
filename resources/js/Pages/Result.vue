@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, Head } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import { useSound } from '../Composables/useSound';
@@ -180,6 +180,9 @@ function backToLobby() {
 </script>
 
 <template>
+    <Head>
+        <meta name="robots" content="noindex, nofollow" head-key="robots" />
+    </Head>
     <GameLayout :room-code="room?.code" :active-game="!is_game_over">
         <Toast />
         <div v-if="alertMessage" class="fixed top-0 left-0 right-0 z-50 flex justify-center p-4">
@@ -282,14 +285,21 @@ function backToLobby() {
 
                                 <!-- Who voted for whom -->
                                 <div v-if="voteDetails.length > 0" class="mt-4 max-w-md mx-auto">
-                                    <p class="text-sm text-[#8b4513] mb-2 uppercase tracking-wider">{{ t('who_voted_for_whom') || 'Who Voted For Whom' }}</p>
-                                    <div class="space-y-1">
+                                    <p class="text-sm text-[#8b4513] mb-3 uppercase tracking-wider text-center">{{ t('who_voted_for_whom') }}</p>
+                                    <div class="space-y-2">
                                         <div v-for="(vd, idx) in voteDetails" :key="idx"
-                                             class="flex items-center gap-2 text-sm text-[#4a2511]">
-                                            <AvatarDisplay v-if="vd.voterAvatar" :avatar="vd.voterAvatar" :size="20" />
-                                            <span class="font-medium">{{ vd.voterNickname }}</span>
-                                            <span class="text-[#8b4513]">&rarr;</span>
-                                            <span>{{ vd.targetNickname }}</span>
+                                             class="flex items-center gap-2 px-3 py-2 bg-[#d3bfa1]/40 border border-[#b8a07e] rounded">
+                                            <div class="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+                                                <span class="text-sm font-semibold text-[#4a2511] truncate">{{ vd.voterNickname }}</span>
+                                                <AvatarDisplay v-if="vd.voterAvatar" :avatar="vd.voterAvatar" :size="24" />
+                                            </div>
+                                            <div class="flex-shrink-0 w-7 h-7 rounded-full bg-[#8b2500] flex items-center justify-center">
+                                                <svg class="w-3.5 h-3.5 text-[#e8dcc4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                            </div>
+                                            <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                                                <AvatarDisplay v-if="vd.targetAvatar" :avatar="vd.targetAvatar" :size="24" />
+                                                <span class="text-sm font-semibold text-[#8b2500] truncate">{{ vd.targetNickname }}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

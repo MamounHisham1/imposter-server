@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Room;
 use App\Services\GameService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -122,7 +123,7 @@ class RoomController extends Controller
             $state = $this->gameService->getGameState($roomId, $playerId);
         } catch (\Exception $e) {
             // Player record gone (stale cleanup, etc.) — try to reconnect
-            $room = \App\Models\Room::where('code', strtoupper($code))->first();
+            $room = Room::where('code', strtoupper($code))->first();
             if ($room && $room->id == $roomId && in_array($room->status, ['playing', 'voting', 'round_result'])) {
                 $nickname = session('player_nickname');
                 $avatar = session('player_avatar');

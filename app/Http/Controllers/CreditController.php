@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Services\CreditService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 

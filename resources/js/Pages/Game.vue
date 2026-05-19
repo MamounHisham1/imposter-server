@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, Head } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import { useSound } from '../Composables/useSound';
@@ -424,6 +424,9 @@ onUnmounted(() => {
 </script>
 
 <template>
+    <Head>
+        <meta name="robots" content="noindex, nofollow" head-key="robots" />
+    </Head>
     <GameLayout :room-code="room?.code" :active-game="true">
         <Toast />
         <div v-if="alertMessage" class="fixed top-0 left-0 right-0 z-50 flex justify-center p-4">

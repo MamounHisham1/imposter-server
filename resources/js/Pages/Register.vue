@@ -1,7 +1,8 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
+import { useForm, Head } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
+import NavBar from '../Components/NavBar.vue';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
@@ -23,7 +24,14 @@ function submit() {
 </script>
 
 <template>
+    <Head>
+        <title>Register — Traitor (الخائن) Game</title>
+        <meta name="description" content="Create a free account on Traitor to save your game stats, earn credits, and customize your avatar. Free online social deduction word game." head-key="description" />
+        <meta name="robots" content="noindex" head-key="robots" />
+    </Head>
     <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <NavBar />
+
         <div class="wanted-poster p-8 max-w-sm w-full text-center">
             <h1 class="text-4xl wanted-text uppercase mb-6">{{ t('register') }}</h1>
 
