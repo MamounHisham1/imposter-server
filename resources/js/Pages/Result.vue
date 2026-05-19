@@ -266,7 +266,7 @@ function backToLobby() {
                             <!-- Word Reveal -->
                             <div v-if="word" class="text-center py-4 border-b-2 border-double border-[#8b4513]">
                                 <p class="text-lg text-[#8b4513] mb-1 uppercase tracking-widest">{{ t('the_word_was') || 'The Secret Word' }}</p>
-                                <div class="inline-block px-6 py-2 bg-[#4a2511] text-[#e8dcc4] text-3xl md:text-4xl wanted-text border-2 border-[#8b4513] shadow-md transform -rotate-1">
+                                <div class="inline-block px-6 py-2 bg-[#f5e4c3] text-3xl md:text-4xl wanted-text border-2 border-[#8b4513] shadow-md transform -rotate-1 font-black">
                                     {{ word }}
                                 </div>
                                 <div v-if="imposter_hint" class="mt-2 text-base text-[#8b2500] italic">
