@@ -661,7 +661,7 @@ PROMPT;
     }
 
     /**
-     * Generate a humorous, atmospheric Saloon Barkeep narration of the round events.
+     * Generate a humorous, atmospheric Saloon Journalist narration of the round events.
      *
      * @param  array  $hints  List of hints submitted during the round.
      * @param  array  $chatMessages  Recent in-game chat messages.
@@ -671,7 +671,7 @@ PROMPT;
      * @param  string  $imposterName  The nickname of the imposter.
      * @param  bool  $imposterCaught  Whether the imposter was caught.
      * @param  string  $language  Language code ('en', 'ar').
-     * @return string Humorous 2-sentence saloon barkeep recap.
+     * @return string Humorous 2-sentence saloon journalist scoop.
      */
     public function generateBarkeepRecap(array $hints, array $chatMessages, array $votes, string $realWord, string $imposterHint, string $imposterName, bool $imposterCaught, string $language = 'en'): string
     {
@@ -701,18 +701,18 @@ PROMPT;
             $languageRules = match ($language) {
                 'ar' => [
                     'language' => 'Arabic (Modern Standard Arabic)',
-                    'style' => 'humorous, rugged Wild West saloon barkeep persona, speaking in a warm but suspenseful Arabic tone. Keep it strictly to EXACTLY 2 sentences. Use local Saloon/Wild West terms (like الحانة، رعاة البقر، رصاص، شريف، المأمور، الذهب، الصحراء). Do not use any latin/English words.',
+                    'style' => 'sensational and cynical Wild West saloon journalist persona, speaking in a dramatic newspaper headline style (like EXTRA! EXTRA! or خبر عاجل!). Keep it strictly to EXACTLY 2 sentences. Use local Newspaper/Wild West terms (like الصحيفة، المطبعة، الخبر، فضيحة، رصاص، شريف، المأمور، الذهب، الصحراء). Do not use any latin/English words.',
                 ],
                 default => [
                     'language' => 'English',
-                    'style' => 'humorous, rugged Wild West saloon barkeep persona, speaking in a warm but suspenseful English tone. Keep it strictly to EXACTLY 2 sentences. Use local Saloon/Wild West terms (like saloon, cowboy, bullets, sheriff, bartender, dust, gold, desert, whiskey).',
+                    'style' => 'sensational and cynical Wild West saloon journalist persona, speaking in a dramatic newspaper headline style (like EXTRA! EXTRA! or BREAKING NEWS!). Keep it strictly to EXACTLY 2 sentences. Use local Newspaper/Wild West terms (like gazette, press, headline, scoop, scandal, sheriff, marshal, gold, desert, bullets).',
                 ],
             };
 
             $prompt = <<<PROMPT
-You are "The Saloon Barkeep" (ساقي الحانة), a rugged, warm, and highly suspenseful bartender in a dusty Wild West saloon. You are observing a game of "Imposter" (الخائن) happening at one of your card tables.
+You are "The Saloon Journalist" (الصحفي بارنابي), a fast-talking, cynical journalist running the "Saloon Gazette" newspaper in a dusty Wild West town. You are observing a game of "Imposter" (الخائن) happening at one of the card tables.
 
-Your task is to summarize the high-stakes round that just ended in your distinct, atmospheric voice.
+Your task is to write a sensational front-page newspaper scoop summarizing the high-stakes round that just ended in your distinct, headline-grabbing voice.
 
 ROUND DETAILS:
 - Secret Word: {$realWord}
@@ -728,16 +728,16 @@ RECENT CHAT CONVERSATION:
 VOTING OUTCOME:
 {$votesList}
 
-Write a humorous, thematic, and dramatic recap of this round.
+Write a sensational, dramatic, and humorous front-page scoop about this round.
 RULES:
 1. Respond in {$languageRules['language']}.
 2. Use the tone: {$languageRules['style']}.
 3. Keep it strictly to EXACTLY 2 sentences.
-4. Do NOT output any markdown blocks, JSON, or code. Return ONLY the raw recap text.
+4. Do NOT output any markdown blocks, JSON, or code. Return ONLY the raw scoop text.
 PROMPT;
 
             $barkeepAgent = agent(
-                instructions: 'You are a Wild West barkeep roleplayer. You respond with exactly 2 sentences in the requested language, with no wrapper, markdown, or extra explanations.',
+                instructions: 'You are a Wild West newspaper journalist roleplayer. You respond with exactly 2 sentences in the requested language, starting with a sensational headline hook, with no wrapper, markdown, or extra explanations.',
             );
 
             $response = $barkeepAgent->prompt($prompt, timeout: 60);
@@ -747,7 +747,7 @@ PROMPT;
                 return $recap;
             }
         } catch (\Throwable $e) {
-            Log::warning('AI Saloon Barkeep recap generation failed, using fallback', [
+            Log::warning('AI Saloon Journalist recap generation failed, using fallback', [
                 'error' => $e->getMessage(),
             ]);
         }
@@ -755,23 +755,23 @@ PROMPT;
         // Return a themed fallback recap if the AI call fails
         if ($language === 'ar') {
             $fallbacksCaught = [
-                "ساد الصمت أرجاء الحانة عندما سحب المأمور مسدسه في وجه {$imposterName}. اتضح أنه كان يحاول تمرير التلميح '{$imposterHint}' بدلاً من الكلمة الحقيقية '{$realWord}'—قبضوا عليه متلبساً!",
-                "ظن {$imposterName} أنه ذكي بتلميحه المخادع '{$imposterHint}'، لكن رواد الحانة كشفوا كذبته وساقوه إلى زنزانة البلدة قبل أن تدق الساعة الثانية عشرة!",
+                "طبعة عاجلة! صحيفة الحانة تعلن سقوط {$imposterName} متلبساً بالجرم المشهود! اتضح أن دليل '{$imposterHint}' كان كذبة مكشوفة تصدرت الصفحة الأولى!",
+                "خبر عاجل: المأمور يزج بالخائن {$imposterName} في غياهب السجن! كشف رواد الحانة كذبته الفاضحة '{$imposterHint}' وصاغوا له نهاية تليق بأفلام الغرب!",
             ];
             $fallbacksEscaped = [
-                "تسلل {$imposterName} من الباب الخلفي للحانة حاملاً أكياس الذهب، تاركاً الجميع يتشاجرون حول '{$realWord}'. سرقة مثالية في وضح النهار وساقي الحانة لم يرَ شيئاً!",
-                "كان الجميع يتجادلون بصوت عالٍ حول '{$imposterHint}' حتى أنهم لم يلاحظوا {$imposterName} وهو يفر بالغنيمة في لهيب الصحراء الحارق!",
+                "سبق صحفي: الخائن المراوغ {$imposterName} يختفي في ظلام الليل حاملاً ذهب الحانة! تفيد مصادرنا أن الجميع انشغلوا بالجدال حول '{$realWord}' حتى غاب عنهم السارق!",
+                "آخر الأنباء: فرار الخائن {$imposterName} بالغنيمة وترك القوم في فوضى عارمة! تساءلت صحيفتنا اليوم: كيف لعصابة كاملة أن تفوت مثل هذه السرقة الذكية؟",
             ];
 
             return $imposterCaught ? Arr::random($fallbacksCaught) : Arr::random($fallbacksEscaped);
         } else {
             $fallbacksCaught = [
-                "The clatter of whiskey glasses died down as the Sheriff pulled his revolver on {$imposterName}. Turns out they were trying to pass off '{$imposterHint}' for '{$realWord}'—a clean catch for the saloon crew!",
-                "{$imposterName} thought they had everyone fooled with that slick '{$imposterHint}' clue. But the boys in the saloon spotted the sweat on their brow and locked them up tight before high noon!",
+                "EXTRA! EXTRA! The Saloon Gazette reports that {$imposterName} has been caught red-handed! Turns out their slick '{$imposterHint}' clue was a front-page fake, and the crew locked them up tight!",
+                "BREAKING NEWS: The Sheriff hangs the traitor {$imposterName} high before noon! The town posse spotted their sweaty '{$imposterHint}' lie and delivered immediate street justice!",
             ];
             $fallbacksEscaped = [
-                "{$imposterName} slipped out the back of the saloon with a bag of gold, leaving the crew accusing each other over '{$realWord}'. A flawless heist, and the barkeep saw nothing!",
-                "The crew was arguing so loud about '{$imposterHint}' that they didn't even notice {$imposterName} pocketing the saloon deck. Another clean getaway in the dusty heat of the desert!",
+                "FRONT PAGE SCOOP: The slippery {$imposterName} vanishes into the night with the saloon gold! Our sources report the posse was too busy arguing over '{$realWord}' to notice the heist!",
+                "LATEST BULLETIN: Traitor {$imposterName} makes a clean getaway, leaving the local crew in absolute shambles! The Gazette asks: how could a group of cowboys miss such a high-stakes robbery?",
             ];
 
             return $imposterCaught ? Arr::random($fallbacksCaught) : Arr::random($fallbacksEscaped);

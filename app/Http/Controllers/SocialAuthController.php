@@ -17,13 +17,22 @@ class SocialAuthController extends Controller
     {
         $googleUser = Socialite::driver('google')->user();
 
-        $user = User::updateOrCreate(
-            ['google_id' => $googleUser->getId()],
-            [
+        $user = User::where('google_id', $googleUser->getId())
+            ->orWhere('email', $googleUser->getEmail())
+            ->first();
+
+        if ($user) {
+            $user->update([
+                'google_id' => $googleUser->getId(),
+                'email' => $googleUser->getEmail(),
+            ]);
+        } else {
+            $user = User::create([
+                'google_id' => $googleUser->getId(),
                 'nickname' => $googleUser->getNickname() ?? explode('@', $googleUser->getEmail())[0],
                 'email' => $googleUser->getEmail(),
-            ]
-        );
+            ]);
+        }
 
         Auth::login($user);
 

@@ -234,19 +234,28 @@ function backToLobby() {
                                 </div>
                             </div>
 
-                            <!-- Barkeep Narrator Recap -->
-                            <div v-if="barkeep_recap" class="mt-6 mb-8 max-w-xl mx-auto p-4 md:p-6 bg-[#f3e5ab]/30 border-2 border-dashed border-[#8b4513] rounded transform rotate-[-0.5deg] shadow-inner relative text-center">
-                                <!-- Tiny wood/paper pin -->
-                                <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-[#8b2500] border border-gray-900 shadow"></div>
-                                <h3 class="text-lg md:text-xl font-bold text-[#8b4513] mb-2 flex items-center justify-center gap-2">
-                                    <svg viewBox="0 0 24 24" class="w-5 h-5 fill-current">
-                                        <path d="M2 21h18v-2H2v2M20 10h-2V6h2v4M4 19h12v-9H4v9m14-11V4H2v2h14v-2M18 10V6h3v4h-3z" />
-                                    </svg>
+                            <!-- Newspaper Scoop Card -->
+                            <div v-if="barkeep_recap" class="mt-8 mb-8 max-w-xl mx-auto p-5 md:p-6 bg-[#fcfbf7] border-4 border-double border-[#3a2717] rounded shadow-md transform rotate-[-0.5deg] relative text-[#22150a] font-serif">
+                                <!-- Newspaper Header -->
+                                <div class="border-b-2 border-[#3a2717] pb-1 mb-4 text-center select-none">
+                                    <h4 class="text-lg md:text-xl tracking-[0.2em] font-black uppercase text-[#1a1007] mb-1">
+                                        {{ room?.language === 'ar' ? 'صحيفة صالون الغرب' : 'THE SALOON GAZETTE' }}
+                                    </h4>
+                                    <div class="flex justify-between items-center text-[10px] uppercase font-bold text-[#8c593b] border-t border-[#3a2717] pt-1 px-1">
+                                        <span>{{ room?.language === 'ar' ? 'العدد الأول' : 'Vol. 1 - No. 1' }}</span>
+                                        <span class="italic text-[9px] font-normal normal-case">{{ room?.language === 'ar' ? '«الحقيقة والذهب والرصاص»' : '“Truth, Gold, & Bullets”' }}</span>
+                                        <span>{{ room?.language === 'ar' ? 'الثمن: ٥ سنتات' : 'Price: 5¢' }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Scoop Section -->
+                                <h3 class="text-sm md:text-base font-extrabold uppercase text-[#8b2500] mb-2 tracking-widest text-center">
                                     {{ t('barkeep_says') }}
                                 </h3>
-                                <p class="text-base md:text-lg italic text-[#4a2511] leading-relaxed select-none font-serif">
-                                    "{{ barkeep_recap }}"
-                                </p>
+
+                                <div class="border-t border-b border-dashed border-[#3a2717] py-4 my-2 text-center leading-relaxed text-base md:text-lg italic font-serif px-2">
+                                    “ {{ barkeep_recap }} ”
+                                </div>
                             </div>
                         </div>
                     </transition>
