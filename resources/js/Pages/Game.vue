@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
@@ -17,6 +17,7 @@ const props = defineProps({
         default: () => [],
     },
     round: Object,
+    current_round: Object,
     hints: {
         type: Array,
         default: () => [],
@@ -34,7 +35,7 @@ const props = defineProps({
         default: () => [],
     },
     current_turn_player_id: {
-        type: Number,
+        type: [Number, String],
         default: null,
     },
     hints_complete: {
@@ -51,18 +52,64 @@ const props = defineProps({
     },
 });
 
+// Coerce ID to a consistent numeric type to avoid string/number mismatches
+// from JSON parsing (WebSocket) vs Inertia prop delivery
+function toNumericId(val) {
+    if (val == null) return null;
+    const n = Number(val);
+    return Number.isNaN(n) ? null : n;
+}
+
 const localPlayer = ref({ ...props.player });
 const localHints = ref([...(props.hints || [])]);
 const localHintOrder = ref([...(props.hint_order || [])]);
-const localCurrentTurnPlayerId = ref(props.current_turn_player_id || null);
+const localCurrentTurnPlayerId = ref(toNumericId(props.current_turn_player_id));
 const localHintsComplete = ref(props.hints_complete || false);
 const localPhaseVotes = ref(props.phase_votes || {});
 const hasPhaseVoted = ref(false);
 const hintInput = ref('');
-const localRound = ref(props.round || null);
+const localRound = ref(props.current_round || props.round || null);
 const localWord = ref(props.word || null);
 const localHintForImposter = ref(props.hint_for_imposter || null);
 const alertMessage = ref('');
+
+// Keep local reactive state in sync with Inertia props.
+// On slow connections, Inertia may deliver/update props after the initial
+// ref() initialization (e.g., deferred partial reloads, navigation races).
+watch(() => props.current_turn_player_id, (newVal) => {
+    if (newVal != null) localCurrentTurnPlayerId.value = toNumericId(newVal);
+});
+watch(() => props.hints, (newVal) => {
+    if (newVal && newVal.length > 0) localHints.value = [...newVal];
+});
+watch(() => props.hint_order, (newVal) => {
+    if (newVal && newVal.length > 0) localHintOrder.value = [...newVal];
+});
+watch(() => props.hints_complete, (newVal) => {
+    if (newVal !== undefined) localHintsComplete.value = newVal;
+});
+watch(() => props.player, (newVal) => {
+    if (newVal) localPlayer.value = { ...newVal };
+});
+watch(() => [props.current_round, props.round], ([cr, r]) => {
+    if (cr) localRound.value = cr;
+    else if (r) localRound.value = r;
+});
+watch(() => props.word, (newVal) => {
+    if (newVal !== undefined) localWord.value = newVal;
+});
+watch(() => props.hint_for_imposter, (newVal) => {
+    if (newVal !== undefined) localHintForImposter.value = newVal;
+});
+watch(() => props.phase_votes, (newVal) => {
+    if (newVal) localPhaseVotes.value = newVal;
+});
+watch(() => props.turn_started_at, (newVal) => {
+    if (newVal) {
+        turnStartedAt.value = new Date(newVal);
+        startHintTimer();
+    }
+});
 
 // Timer logic for hint phase (20s per turn)
 const HINT_TIMER_SECONDS = 20;
@@ -117,7 +164,8 @@ const imposterHint = computed(() => {
 });
 
 const hasSubmittedHint = computed(() => {
-    return localHints.value.some((h) => h.player_id === props.player?.id);
+    const myId = toNumericId(props.player?.id);
+    return localHints.value.some((h) => toNumericId(h.player_id) === myId);
 });
 
 const sortedHints = computed(() => {
@@ -125,18 +173,20 @@ const sortedHints = computed(() => {
 });
 
 const isMyTurn = computed(() => {
-    return localCurrentTurnPlayerId.value === props.player?.id;
+    if (localCurrentTurnPlayerId.value == null || props.player?.id == null) return false;
+    return toNumericId(localCurrentTurnPlayerId.value) === toNumericId(props.player.id);
 });
 
 const waitingPlayer = computed(() => {
-    if (!localCurrentTurnPlayerId.value) return null;
-    return props.players.find((p) => p.id === localCurrentTurnPlayerId.value);
+    if (localCurrentTurnPlayerId.value == null) return null;
+    const turnId = toNumericId(localCurrentTurnPlayerId.value);
+    return props.players.find((p) => toNumericId(p.id) === turnId);
 });
 
 const orderedPlayers = computed(() => {
     if (localHintOrder.value.length === 0) return props.players;
     return localHintOrder.value
-        .map((id) => props.players.find((p) => p.id === id))
+        .map((id) => props.players.find((p) => toNumericId(p.id) === toNumericId(id)))
         .filter(Boolean);
 });
 
@@ -187,6 +237,17 @@ if (turnStartedAt.value && !localHintsComplete.value && localCurrentTurnPlayerId
 }
 
 onMounted(() => {
+    // Safety net: if on slow connections the page loaded without critical game data,
+    // auto-refresh from the server to get the correct state.
+    if (props.room?.status === 'playing' && !localCurrentTurnPlayerId.value && !localHintsComplete.value && localHints.value.length === 0) {
+        setTimeout(() => {
+            // Re-check — props watchers may have kicked in by now
+            if (!localCurrentTurnPlayerId.value && !localHintsComplete.value) {
+                router.reload({ preserveScroll: true });
+            }
+        }, 1500);
+    }
+
     if (window.Echo) {
         window.Echo.channel('room.' + props.room?.id)
             .listen('.game.event', (e) => {
@@ -196,7 +257,7 @@ onMounted(() => {
                         break;
                     case 'hint_submitted':
                         if (e.hints) localHints.value = e.hints;
-                        if (e.next_player_id !== undefined) localCurrentTurnPlayerId.value = e.next_player_id;
+                        if (e.next_player_id !== undefined) localCurrentTurnPlayerId.value = toNumericId(e.next_player_id);
                         if (e.hint_order) localHintOrder.value = e.hint_order;
                         turnStartedAt.value = new Date();
                         startHintTimer();
@@ -217,10 +278,10 @@ onMounted(() => {
                         if (e.current_round) localRound.value = e.current_round;
                         if (e.word !== undefined) localWord.value = e.word;
                         if (e.hint_for_imposter !== undefined) localHintForImposter.value = e.hint_for_imposter;
-                        if (e.current_turn_player_id !== undefined) localCurrentTurnPlayerId.value = e.current_turn_player_id;
+                        if (e.current_turn_player_id !== undefined) localCurrentTurnPlayerId.value = toNumericId(e.current_turn_player_id);
                         if (e.hint_order) localHintOrder.value = e.hint_order;
                         if (e.players) {
-                            const me = e.players.find((p) => p.id === props.player?.id);
+                            const me = e.players.find((p) => toNumericId(p.id) === toNumericId(props.player?.id));
                             if (me) localPlayer.value = { ...localPlayer.value, is_imposter: me.is_imposter };
                         }
                         hintInput.value = '';
@@ -261,7 +322,7 @@ onMounted(() => {
                         break;
                     case 'hint_order_updated':
                         if (e.hint_order) localHintOrder.value = e.hint_order;
-                        if (e.current_turn_player_id !== undefined) localCurrentTurnPlayerId.value = e.current_turn_player_id;
+                        if (e.current_turn_player_id !== undefined) localCurrentTurnPlayerId.value = toNumericId(e.current_turn_player_id);
                         if (e.hints) localHints.value = e.hints;
                         turnStartedAt.value = new Date();
                         startHintTimer();
