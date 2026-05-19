@@ -234,8 +234,13 @@ function backToLobby() {
                                 </div>
                             </div>
 
-                            <!-- Newspaper Scoop Card -->
-                            <div v-if="barkeep_recap" class="mt-8 mb-8 max-w-xl mx-auto p-5 md:p-6 bg-[#fcfbf7] border-4 border-double border-[#3a2717] rounded shadow-md transform rotate-[-0.5deg] relative text-[#22150a] font-serif">
+                            <!-- Newspaper Scoop Card (Old, Burned, and Rusty) -->
+                            <div v-if="barkeep_recap" 
+                                 class="mt-8 mb-8 max-w-xl mx-auto p-6 md:p-8 rounded shadow-2xl transform rotate-[-0.7deg] relative text-[#1a0f07] font-serif border-4 border-double border-[#2d1b0f]"
+                                 style="
+                                     background: radial-gradient(circle at 50% 50%, #fcf8f0 20%, #ebdcb9 60%, #a27246 88%, #3e2717 100%);
+                                     box-shadow: inset 0 0 25px rgba(62, 39, 23, 0.45), inset 0 0 50px rgba(0, 0, 0, 0.8), 0 10px 25px rgba(0, 0, 0, 0.55);
+                                 ">
                                 <!-- Newspaper Header -->
                                 <div class="border-b-2 border-[#3a2717] pb-1 mb-4 text-center select-none">
                                     <h4 class="text-lg md:text-xl tracking-[0.2em] font-black uppercase text-[#1a1007] mb-1">
