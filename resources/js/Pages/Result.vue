@@ -244,7 +244,7 @@ function backToLobby() {
                                 <!-- Newspaper Header -->
                                 <div class="border-b-2 border-[#3a2717] pb-1 mb-4 text-center select-none">
                                     <h4 class="text-lg md:text-xl tracking-[0.2em] font-black uppercase text-[#1a1007] mb-1">
-                                        {{ room?.language === 'ar' ? 'صحيفة صالون الغرب' : 'THE SALOON GAZETTE' }}
+                                        {{ room?.language === 'ar' ? 'بريد الصحراء' : 'THE DESERT POST' }}
                                     </h4>
                                     <div class="flex justify-between items-center text-[10px] uppercase font-bold text-[#8c593b] border-t border-[#3a2717] pt-1 px-1">
                                         <span>{{ room?.language === 'ar' ? 'العدد الأول' : 'Vol. 1 - No. 1' }}</span>
