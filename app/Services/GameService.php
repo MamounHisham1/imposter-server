@@ -1133,11 +1133,39 @@ class GameService
                 $roundResults['winner'] = 'imposter';
             }
 
+            // Generate humorous Barkeep Recap
+            $barkeepRecap = '';
+            try {
+                $hints = $currentRound->hints()->with('player')->get()->toArray();
+                $chatMessages = ChatMessage::where('room_id', $room->id)
+                    ->orderBy('id', 'asc')
+                    ->take(15)
+                    ->get()
+                    ->toArray();
+                $votesData = $votes->toArray();
+
+                $barkeepRecap = $this->aiWordService->generateBarkeepRecap(
+                    $hints,
+                    $chatMessages,
+                    $votesData,
+                    $currentRound->real_word,
+                    $currentRound->imposter_hint,
+                    $imposter->nickname,
+                    $imposterCaught,
+                    $room->language ?? 'en'
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Failed to generate Barkeep recap', ['error' => $e->getMessage()]);
+            }
+
+            $roundResults['barkeep_recap'] = $barkeepRecap;
+
             // Save results on the round itself
             $currentRound->update([
                 'winner' => $roundResults['winner'],
                 'imposter_caught' => $imposterCaught,
                 'vote_tally' => $roundResults['vote_tally'],
+                'barkeep_recap' => $barkeepRecap,
             ]);
 
             // Award credit rewards when game ends
@@ -1522,6 +1550,7 @@ class GameService
                 $state['winner'] = $lastRound->winner;
                 $state['imposter_caught'] = $lastRound->imposter_caught;
                 $state['vote_tally'] = $lastRound->vote_tally;
+                $state['barkeep_recap'] = $lastRound->barkeep_recap;
             } elseif ($allVotes->isNotEmpty()) {
                 $tally = $allVotes->groupBy('target_id')->map->count();
                 $maxVotes = $tally->max();
@@ -1554,6 +1583,7 @@ class GameService
                 $state['winner'] = $lastRound->winner;
                 $state['imposter_caught'] = $lastRound->imposter_caught;
                 $state['vote_tally'] = $lastRound->vote_tally;
+                $state['barkeep_recap'] = $lastRound->barkeep_recap;
                 $state['hints'] = $this->formatHints($lastRound->hints);
                 $state['previous_hints_by_cycle'] = $this->formatHintsByCycle($lastRound);
                 $state['hint_cycle'] = $lastRound->hint_cycle ?? 1;

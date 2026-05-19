@@ -506,7 +506,7 @@ onUnmounted(() => {
                                 ]"
                                 :style="`transform: rotate(${p.id % 2 === 0 ? '2deg' : '-2deg'});`"
                             >
-                                <AvatarDisplay :avatar="p.avatar" :size="48" />
+                                <AvatarDisplay :avatar="p.avatar" :size="48" :state="localCurrentTurnPlayerId === p.id ? 'tense' : (localHints.some(h => h.player_id === p.id) ? 'shooting' : 'normal')" />
                                 <span class="truncate max-w-[70px] md:max-w-[90px]">{{ p.nickname }}</span>
                                 <div v-if="localCurrentTurnPlayerId === p.id" class="absolute -top-3 -right-3 w-6 h-6 bg-[#d3bfa1] border-2 border-[#8b2500] rounded-full animate-bounce"></div>
                             </div>

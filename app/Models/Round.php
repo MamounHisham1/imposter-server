@@ -15,6 +15,7 @@ class Round extends Model
         'winner',
         'imposter_caught',
         'vote_tally',
+        'barkeep_recap',
         'hint_order',
         'hint_cycle',
         'turn_started_at',

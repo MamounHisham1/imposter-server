@@ -659,4 +659,122 @@ PROMPT;
 
         return Arr::random($available);
     }
+
+    /**
+     * Generate a humorous, atmospheric Saloon Barkeep narration of the round events.
+     *
+     * @param  array  $hints  List of hints submitted during the round.
+     * @param  array  $chatMessages  Recent in-game chat messages.
+     * @param  array  $votes  Votes details (who voted for whom).
+     * @param  string  $realWord  The secret word of the crew.
+     * @param  string  $imposterHint  The hint the imposter had.
+     * @param  string  $imposterName  The nickname of the imposter.
+     * @param  bool  $imposterCaught  Whether the imposter was caught.
+     * @param  string  $language  Language code ('en', 'ar').
+     * @return string Humorous 2-sentence saloon barkeep recap.
+     */
+    public function generateBarkeepRecap(array $hints, array $chatMessages, array $votes, string $realWord, string $imposterHint, string $imposterName, bool $imposterCaught, string $language = 'en'): string
+    {
+        try {
+            $hintsList = '';
+            foreach ($hints as $h) {
+                $pName = $h['player_nickname'] ?? ($h['player']['nickname'] ?? 'Someone');
+                $hText = $h['hint'] ?? '';
+                $hintsList .= "- {$pName} said '{$hText}'\n";
+            }
+
+            $chatList = '';
+            foreach (array_slice($chatMessages, -8) as $c) {
+                $pName = $c['player_nickname'] ?? ($c['player']['nickname'] ?? 'Someone');
+                $msg = $c['message'] ?? '';
+                $chatList .= "[{$pName}]: {$msg}\n";
+            }
+
+            $votesList = '';
+            foreach ($votes as $v) {
+                $voterName = $v['voter_nickname'] ?? ($v['voter']['nickname'] ?? 'Someone');
+                $targetName = $v['target_nickname'] ?? ($v['target']['nickname'] ?? 'Someone');
+                $votesList .= "- {$voterName} voted for {$targetName}\n";
+            }
+            $votesList .= $imposterCaught ? 'Result: Imposter caught!' : 'Result: Imposter survived!';
+
+            $languageRules = match ($language) {
+                'ar' => [
+                    'language' => 'Arabic (Modern Standard Arabic)',
+                    'style' => 'humorous, rugged Wild West saloon barkeep persona, speaking in a warm but suspenseful Arabic tone. Keep it strictly to EXACTLY 2 sentences. Use local Saloon/Wild West terms (like الحانة، رعاة البقر، رصاص، شريف، المأمور، الذهب، الصحراء). Do not use any latin/English words.',
+                ],
+                default => [
+                    'language' => 'English',
+                    'style' => 'humorous, rugged Wild West saloon barkeep persona, speaking in a warm but suspenseful English tone. Keep it strictly to EXACTLY 2 sentences. Use local Saloon/Wild West terms (like saloon, cowboy, bullets, sheriff, bartender, dust, gold, desert, whiskey).',
+                ],
+            };
+
+            $prompt = <<<PROMPT
+You are "The Saloon Barkeep" (ساقي الحانة), a rugged, warm, and highly suspenseful bartender in a dusty Wild West saloon. You are observing a game of "Imposter" (الخائن) happening at one of your card tables.
+
+Your task is to summarize the high-stakes round that just ended in your distinct, atmospheric voice.
+
+ROUND DETAILS:
+- Secret Word: {$realWord}
+- Imposter: {$imposterName}
+- Imposter Hint: {$imposterHint}
+
+PLAYER HINTS SUBMITTED:
+{$hintsList}
+
+RECENT CHAT CONVERSATION:
+{$chatList}
+
+VOTING OUTCOME:
+{$votesList}
+
+Write a humorous, thematic, and dramatic recap of this round.
+RULES:
+1. Respond in {$languageRules['language']}.
+2. Use the tone: {$languageRules['style']}.
+3. Keep it strictly to EXACTLY 2 sentences.
+4. Do NOT output any markdown blocks, JSON, or code. Return ONLY the raw recap text.
+PROMPT;
+
+            $barkeepAgent = agent(
+                instructions: 'You are a Wild West barkeep roleplayer. You respond with exactly 2 sentences in the requested language, with no wrapper, markdown, or extra explanations.',
+            );
+
+            $response = $barkeepAgent->prompt($prompt, timeout: 60);
+            $recap = trim($response->text ?? '');
+
+            if (! empty($recap)) {
+                return $recap;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('AI Saloon Barkeep recap generation failed, using fallback', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Return a themed fallback recap if the AI call fails
+        if ($language === 'ar') {
+            $fallbacksCaught = [
+                "ساد الصمت أرجاء الحانة عندما سحب المأمور مسدسه في وجه {$imposterName}. اتضح أنه كان يحاول تمرير التلميح '{$imposterHint}' بدلاً من الكلمة الحقيقية '{$realWord}'—قبضوا عليه متلبساً!",
+                "ظن {$imposterName} أنه ذكي بتلميحه المخادع '{$imposterHint}'، لكن رواد الحانة كشفوا كذبته وساقوه إلى زنزانة البلدة قبل أن تدق الساعة الثانية عشرة!",
+            ];
+            $fallbacksEscaped = [
+                "تسلل {$imposterName} من الباب الخلفي للحانة حاملاً أكياس الذهب، تاركاً الجميع يتشاجرون حول '{$realWord}'. سرقة مثالية في وضح النهار وساقي الحانة لم يرَ شيئاً!",
+                "كان الجميع يتجادلون بصوت عالٍ حول '{$imposterHint}' حتى أنهم لم يلاحظوا {$imposterName} وهو يفر بالغنيمة في لهيب الصحراء الحارق!",
+            ];
+
+            return $imposterCaught ? Arr::random($fallbacksCaught) : Arr::random($fallbacksEscaped);
+        } else {
+            $fallbacksCaught = [
+                "The clatter of whiskey glasses died down as the Sheriff pulled his revolver on {$imposterName}. Turns out they were trying to pass off '{$imposterHint}' for '{$realWord}'—a clean catch for the saloon crew!",
+                "{$imposterName} thought they had everyone fooled with that slick '{$imposterHint}' clue. But the boys in the saloon spotted the sweat on their brow and locked them up tight before high noon!",
+            ];
+            $fallbacksEscaped = [
+                "{$imposterName} slipped out the back of the saloon with a bag of gold, leaving the crew accusing each other over '{$realWord}'. A flawless heist, and the barkeep saw nothing!",
+                "The crew was arguing so loud about '{$imposterHint}' that they didn't even notice {$imposterName} pocketing the saloon deck. Another clean getaway in the dusty heat of the desert!",
+            ];
+
+            return $imposterCaught ? Arr::random($fallbacksCaught) : Arr::random($fallbacksEscaped);
+        }
+    }
 }

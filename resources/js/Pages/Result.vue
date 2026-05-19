@@ -52,6 +52,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    barkeep_recap: {
+        type: String,
+        default: '',
+    },
 });
 
 const revealPhase = ref(false);
@@ -223,11 +227,26 @@ function backToLobby() {
                             <div class="mb-8">
                                 <p class="text-xl md:text-2xl text-gray-700 mb-4">{{ t('the_imposter_was') }}</p>
                                 <div class="flex flex-col items-center gap-3">
-                                    <AvatarDisplay v-if="imposter?.avatar" :avatar="imposter.avatar" :size="120" />
+                                    <AvatarDisplay v-if="imposter?.avatar" :avatar="imposter.avatar" :size="120" :state="imposter_caught ? 'caught' : 'normal'" />
                                     <div class="px-8 py-3 bg-[#8b2500] text-[#e8dcc4] text-4xl md:text-6xl border-4 border-[#4a1500] transform -rotate-2 shadow-lg">
                                         {{ imposter?.nickname || '???' }}
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- Barkeep Narrator Recap -->
+                            <div v-if="barkeep_recap" class="mt-6 mb-8 max-w-xl mx-auto p-4 md:p-6 bg-[#f3e5ab]/30 border-2 border-dashed border-[#8b4513] rounded transform rotate-[-0.5deg] shadow-inner relative text-center">
+                                <!-- Tiny wood/paper pin -->
+                                <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-[#8b2500] border border-gray-900 shadow"></div>
+                                <h3 class="text-lg md:text-xl font-bold text-[#8b4513] mb-2 flex items-center justify-center gap-2">
+                                    <svg viewBox="0 0 24 24" class="w-5 h-5 fill-current">
+                                        <path d="M2 21h18v-2H2v2M20 10h-2V6h2v4M4 19h12v-9H4v9m14-11V4H2v2h14v-2M18 10V6h3v4h-3z" />
+                                    </svg>
+                                    {{ t('barkeep_says') }}
+                                </h3>
+                                <p class="text-base md:text-lg italic text-[#4a2511] leading-relaxed select-none font-serif">
+                                    "{{ barkeep_recap }}"
+                                </p>
                             </div>
                         </div>
                     </transition>
@@ -323,7 +342,7 @@ function backToLobby() {
                                             {{ idx + 1 }}
                                         </div>
                                         <!-- Avatar -->
-                                        <AvatarDisplay v-if="p.avatar" :avatar="p.avatar" :size="40" />
+                                        <AvatarDisplay v-if="p.avatar" :avatar="p.avatar" :size="40" :state="p.is_imposter ? (imposter_caught ? 'caught' : (isImposterWin ? 'celebrating' : 'normal')) : (winner === 'crew' ? 'celebrating' : 'normal')" />
                                         <div v-else class="w-10 h-10 rounded bg-[#b8a07e] flex items-center justify-center text-[#4a2511] text-xl font-bold flex-shrink-0">
                                             {{ p.nickname?.charAt(0)?.toUpperCase() || '?' }}
                                         </div>
