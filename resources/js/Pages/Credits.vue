@@ -63,7 +63,7 @@ function translateDescription(desc) {
             </div>
 
             <div v-if="transactions.length === 0" class="text-[#8b6914] text-lg py-4">
-                No transactions yet. Play games to earn credits!
+                {{ t('no_transactions') }}
             </div>
 
             <div v-else class="space-y-2 max-h-80 overflow-y-auto text-left">

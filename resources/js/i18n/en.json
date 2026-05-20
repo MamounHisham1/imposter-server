@@ -179,5 +179,21 @@
   "purchased_item": "Purchased item: {item}",
   "purchased_costume": "Purchased costume: {costume}",
   "granted_by": "Granted by {admin}",
-  "coming_soon": "Coming Soon..."
+  "coming_soon": "Coming Soon...",
+  "error_page_404_title": "LOST IN THE DUNES",
+  "error_page_404_desc": "Looks like you took a wrong turn at the saloon, partner. There's nothin' here but tumbleweeds and dust.",
+  "error_page_404_btn": "Ride Back Home",
+  "error_page_403_title": "GUARDED SALOON",
+  "error_page_403_desc": "Whoa, hold your horses! This territory is off-limits. The Sheriff has got this place locked down.",
+  "error_page_403_btn": "Retreat to Safety",
+  "error_page_400_title": "BROKEN WAGON",
+  "error_page_400_desc": "The dust got in the gears, partner! That request was as crooked as a three-card monte dealer.",
+  "error_page_400_btn": "Fix Up & Return",
+  "error_page_500_title": "SALOON BRAWL!",
+  "error_page_500_desc": "A massive brawl just broke out in the back! The piano's broken, glasses are flyin', and our engineers are trying to sweep up the mess.",
+  "error_page_500_btn": "Wait for Dust to Settle",
+  "error_page_generic_title": "WILD SHOWDOWN",
+  "error_page_generic_desc": "An unexpected standoff has occurred. We're checkin' our ammunition. Try again shortly, partner.",
+  "error_page_generic_btn": "Head Back",
+  "no_transactions": "No transactions yet. Play games to earn credits!"
 }
