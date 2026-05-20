@@ -21,6 +21,7 @@ class GameService
         private AiWordService $aiWordService,
         private RoomCleanupService $cleanupService,
         private CreditService $creditService,
+        private AnalyticsService $analyticsService,
     ) {}
 
     private function cleanAllStale(): void
@@ -64,6 +65,9 @@ class GameService
             ]);
 
             $room->update(['creator_id' => $player->id]);
+
+            $this->analyticsService->recordRoomCreated($room);
+            $this->analyticsService->recordPlayerJoined($player);
 
             broadcast(new GameEvent($room->id, 'room_created', [
                 'room' => $this->formatRoom($room->fresh()),
@@ -138,6 +142,8 @@ class GameService
             'score' => 0,
             'avatar' => $avatar,
         ]);
+
+        $this->analyticsService->recordPlayerJoined($player);
 
         $room->touchActivity();
 
@@ -293,7 +299,7 @@ class GameService
                 // Imposter left: resolve round as "imposter fled"
                 if ($wasImposter) {
                     return $this->handleImposterFled(
-                        $room, $currentRound, $playerId, $playerNickname,
+                        $room, $currentRound, $player,
                         $roomCode, $roomType, $roomId, $remainingPlayers
                     );
                 }
@@ -357,13 +363,14 @@ class GameService
     private function handleImposterFled(
         Room $room,
         ?Round $currentRound,
-        int $playerId,
-        string $playerNickname,
+        Player $player,
         string $roomCode,
         string $roomType,
         int $roomId,
         $remainingPlayers
     ): array {
+        $this->analyticsService->recordImposterFled($room);
+
         // Score: all remaining crew players get 2 points (imposter fled)
         foreach ($remainingPlayers as $p) {
             $p->increment('score', 2);
@@ -376,8 +383,8 @@ class GameService
                 'real_word' => $currentRound->real_word,
                 'imposter_hint' => $currentRound->imposter_hint,
                 'imposter' => [
-                    'id' => $playerId,
-                    'nickname' => $playerNickname,
+                    'id' => $player->id,
+                    'nickname' => $player->nickname,
                     'is_imposter' => true,
                     'avatar' => $player->avatar,
                 ],
@@ -393,6 +400,8 @@ class GameService
                 'imposter_caught' => false,
                 'vote_tally' => [],
             ]);
+
+            $this->analyticsService->recordRoundCompleted($room, $currentRound->fresh());
         }
 
         // Check if game is over
@@ -402,6 +411,8 @@ class GameService
 
         if ($isGameOver) {
             $room->update(['status' => 'finished']);
+
+            $this->analyticsService->recordGameCompleted($room);
 
             $players = $room->players()->orderByDesc('score')->get();
 
@@ -431,7 +442,7 @@ class GameService
                 'round_results' => $roundResults ?? null,
                 'final_scores' => $this->formatPlayers($players),
                 'is_game_over' => true,
-                'fled_player' => ['id' => $playerId, 'nickname' => $playerNickname],
+                'fled_player' => ['id' => $player->id, 'nickname' => $player->nickname],
             ]));
         } else {
             $room->update(['status' => 'round_result']);
@@ -440,13 +451,13 @@ class GameService
                 'room' => $this->formatRoom($room->fresh()),
                 'round_results' => $roundResults ?? null,
                 'is_game_over' => false,
-                'fled_player' => ['id' => $playerId, 'nickname' => $playerNickname],
+                'fled_player' => ['id' => $player->id, 'nickname' => $player->nickname],
             ]));
         }
 
         broadcast(new GameEvent($roomId, 'player_left', [
             'room' => $this->formatRoom($room->fresh()),
-            'player_id' => $playerId,
+            'player_id' => $player->id,
         ]));
 
         if ($roomType === 'public') {
@@ -593,6 +604,8 @@ class GameService
             ]);
 
             $room->touchActivity();
+
+            $this->analyticsService->recordGameStarted($room);
 
             broadcast(new GameEvent($room->id, 'game_started', [
                 'room' => $this->formatRoom($room->fresh()),
@@ -1168,11 +1181,15 @@ class GameService
                 'barkeep_recap' => $barkeepRecap,
             ]);
 
+            $this->analyticsService->recordRoundCompleted($room, $currentRound->fresh());
+
             // Award credit rewards when game ends
             $isGameOver = $currentRound->round_number >= $room->rounds_per_game;
 
             if ($isGameOver) {
                 $room->update(['status' => 'finished']);
+
+                $this->analyticsService->recordGameCompleted($room);
 
                 $players = $room->players()->orderByDesc('score')->get();
 

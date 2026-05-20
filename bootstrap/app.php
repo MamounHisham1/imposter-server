@@ -3,6 +3,7 @@
 use App\Http\Middleware\AddLinkHeaders;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\MarkdownNegotiation;
+use App\Http\Middleware\TrackPageView;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             MarkdownNegotiation::class,
             AddLinkHeaders::class,
             HandleInertiaRequests::class,
+            TrackPageView::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             '/broadcasting/auth',

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\GameController;
@@ -86,3 +87,15 @@ Route::get('/game/{code}/result', [GameController::class, 'result'])->name('resu
 Route::post('/game/{code}/next-round-result', [GameController::class, 'nextRoundFromResult'])->name('game.next-round-result');
 Route::post('/game/{code}/rematch', [GameController::class, 'rematch'])->name('game.rematch');
 Route::post('/game/{code}/chat', [GameController::class, 'sendChat'])->name('game.chat');
+
+// Admin Dashboard
+Route::prefix('admin')->middleware(\App\Http\Middleware\AdminAuth::class)->group(function () {
+    Route::get('/', [AdminController::class, 'index'])->name('admin.dashboard');
+    Route::get('/api/overview', [AdminController::class, 'apiOverview'])->name('admin.api.overview');
+    Route::get('/api/charts', [AdminController::class, 'apiCharts'])->name('admin.api.charts');
+    Route::get('/api/recent-games', [AdminController::class, 'apiRecentGames'])->name('admin.api.recent-games');
+    Route::get('/api/leaderboard', [AdminController::class, 'apiLeaderboard'])->name('admin.api.leaderboard');
+    Route::get('/api/word-stats', [AdminController::class, 'apiWordStats'])->name('admin.api.word-stats');
+    Route::get('/api/hourly-activity', [AdminController::class, 'apiHourlyActivity'])->name('admin.api.hourly-activity');
+    Route::get('/api/visitor-charts', [AdminController::class, 'apiVisitorCharts'])->name('admin.api.visitor-charts');
+});
