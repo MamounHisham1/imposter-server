@@ -7,7 +7,7 @@ return [
     'history' => [
         'encrypt' => false,
     ],
-    'version' => fn () => null,
+    'version' => null,
     'pages' => [
         'paths' => [
             resource_path('js/Pages'),
