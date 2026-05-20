@@ -9,12 +9,7 @@ class AdminAuth
 {
     public function handle(Request $request, Closure $next)
     {
-        $password = env('ADMIN_PASSWORD');
-
-        // No password configured — allow access (dev mode)
-        if (! $password) {
-            return $next($request);
-        }
+        $password = config('app.admin_password');
 
         // Session-based auth persists after first login
         if (session('admin_authed')) {
@@ -22,7 +17,7 @@ class AdminAuth
         }
 
         // One-time login via token query param
-        if ($request->query('token') === $password) {
+        if (! empty($password) && $request->query('token') === $password) {
             session(['admin_authed' => true]);
 
             // Strip token from URL and redirect
@@ -33,6 +28,6 @@ class AdminAuth
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        return redirect('/')->withErrors(['error' => 'Unauthorized – append ?token=YOUR_PASSWORD to access.']);
+        return redirect('/')->withErrors(['error' => 'Unauthorized – admin password not set or invalid.']);
     }
 }
