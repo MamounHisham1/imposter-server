@@ -5,6 +5,7 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 import Toast from './Components/Toast.vue';
 import { useToast } from './Composables/useToast';
+import { initTracking } from './Composables/useTracking';
 import '../css/app.css';
 
 import en from './i18n/en.json';
@@ -47,6 +48,7 @@ createInertiaApp({
         return pages[`./Pages/${name}.vue`];
     },
     setup({ el, App, props, plugin }) {
+        initTracking();
         const app = createSSRApp(App, props);
         app.use(plugin);
         app.use(i18n);
