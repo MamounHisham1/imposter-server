@@ -3,6 +3,7 @@ import { useForm, Head } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../Composables/useToast';
 import NavBar from '../Components/NavBar.vue';
+import SiteFooter from '../Components/SiteFooter.vue';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
@@ -61,6 +62,7 @@ function submit() {
                 <a href="/login" class="block text-[#8b4513] text-lg hover:underline">{{ t('already_have_account') }}</a>
             </div>
         </div>
+        <SiteFooter />
     </div>
 </template>
 

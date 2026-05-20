@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { router, Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import NavBar from '../Components/NavBar.vue';
+import SiteFooter from '../Components/SiteFooter.vue';
 
 const { t, locale } = useI18n();
 const baseUrl = computed(() => usePage().props.baseUrl || '');
@@ -123,6 +124,7 @@ function toggleLanguage() {
                 </div>
             </div>
         </div>
+        <SiteFooter />
     </div>
 </template>
 

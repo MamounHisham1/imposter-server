@@ -171,5 +171,13 @@
   "who_voted_for_whom": "من صوّت لمن",
   "final_scores": "النتائج النهائية",
   "scoreboard": "لوحة النتائج",
-  "pts": "نقطة"
+  "pts": "نقطة",
+  "reward_game_played": "مكافأة: لعب مباراة",
+  "reward_win_as_crew": "مكافأة: الفوز كطاقم",
+  "reward_win_as_imposter": "مكافأة: الفوز كخائن",
+  "reward_correct_vote": "مكافأة: تصويت صحيح",
+  "purchased_item": "شراء عنصر: {item}",
+  "purchased_costume": "شراء زي: {costume}",
+  "granted_by": "ممنوح بواسطة {admin}",
+  "coming_soon": "قريباً..."
 }

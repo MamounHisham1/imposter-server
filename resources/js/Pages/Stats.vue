@@ -2,6 +2,7 @@
 import { router, Head, Link } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import NavBar from '../Components/NavBar.vue';
+import SiteFooter from '../Components/SiteFooter.vue';
 
 const { t } = useI18n();
 
@@ -134,6 +135,7 @@ function backToHome() {
                 </div>
             </div>
         </div>
+        <SiteFooter />
     </div>
 </template>
 

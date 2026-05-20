@@ -48,7 +48,9 @@ Route::get('/stats', [StatsController::class, 'index'])->name('stats');
 // Credits & Shop (auth required)
 Route::middleware(['auth'])->group(function () {
     Route::get('/credits', [CreditController::class, 'index'])->name('credits');
-    Route::get('/shop', [ShopController::class, 'index'])->name('shop');
+    Route::get('/shop', function () {
+        return redirect()->route('home');
+    })->name('shop');
     Route::post('/shop/buy/element', [ShopController::class, 'buyElement'])->name('shop.buy.element');
     Route::post('/shop/buy/costume', [ShopController::class, 'buyCostume'])->name('shop.buy.costume');
     Route::get('/api/inventory', [ShopController::class, 'inventory'])->name('api.inventory');

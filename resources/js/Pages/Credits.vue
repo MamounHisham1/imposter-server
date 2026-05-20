@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n';
 import { Link, Head } from '@inertiajs/vue3';
 import NavBar from '../Components/NavBar.vue';
+import SiteFooter from '../Components/SiteFooter.vue';
 
 const { t } = useI18n();
 
@@ -9,6 +10,33 @@ defineProps({
     credits: { type: Number, default: 0 },
     transactions: { type: Array, default: () => [] },
 });
+
+function translateDescription(desc) {
+    if (!desc) return '';
+    
+    if (desc.startsWith('Reward: ')) {
+        const event = desc.replace('Reward: ', '').trim();
+        const key = `reward_${event}`;
+        return t(key) !== key ? t(key) : desc;
+    }
+    
+    if (desc.startsWith('Purchased item: ')) {
+        const item = desc.replace('Purchased item: ', '').trim();
+        return t('purchased_item', { item: item });
+    }
+    
+    if (desc.startsWith('Purchased costume: ')) {
+        const costume = desc.replace('Purchased costume: ', '').trim();
+        return t('purchased_costume', { costume: costume });
+    }
+    
+    if (desc.startsWith('Granted by ')) {
+        const admin = desc.replace('Granted by ', '').trim();
+        return t('granted_by', { admin: admin });
+    }
+    
+    return desc;
+}
 </script>
 
 <template>
@@ -41,7 +69,7 @@ defineProps({
             <div v-else class="space-y-2 max-h-80 overflow-y-auto text-left">
                 <div v-for="tx in transactions" :key="tx.id" class="flex justify-between items-center p-2 border-b border-dashed border-[#b8a07e]">
                     <div>
-                        <div class="text-sm text-[#4a2511]">{{ tx.description || tx.type }}</div>
+                        <div class="text-sm text-[#4a2511]">{{ translateDescription(tx.description || tx.type) }}</div>
                         <div class="text-xs text-[#8b6914]">{{ new Date(tx.created_at).toLocaleDateString() }}</div>
                     </div>
                     <div :class="tx.amount > 0 ? 'text-green-700' : 'text-[#8b2500]'" class="font-bold font-sans">
@@ -50,6 +78,7 @@ defineProps({
                 </div>
             </div>
         </div>
+        <SiteFooter />
     </div>
 </template>
 

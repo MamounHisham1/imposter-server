@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { router } from '@inertiajs/vue3';
 import NavBar from '../Components/NavBar.vue';
+import SiteFooter from '../Components/SiteFooter.vue';
 
 const { t, locale } = useI18n();
 </script>
@@ -173,6 +174,7 @@ const { t, locale } = useI18n();
                 </button>
             </div>
         </div>
+        <SiteFooter />
     </div>
 </template>
 

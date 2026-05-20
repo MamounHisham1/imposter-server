@@ -75,8 +75,7 @@ export const AVATAR_ITEMS = {
       "gemini_generated_image_io8ta0io8ta0io8t-removebg-preview.png",
       "gemini_generated_image_bklnwebklnwebkln-removebg-preview.png",
       "gemini_generated_image_53o3h53o3h53o3h5-removebg-preview.png",
-      "gemini_generated_image_i6aqyhi6aqyhi6aq-removebg-preview.png",
-      "background_removed_58a0a588-715f-488a-a1e1-b7109bf53ed5_output.png"
+      "gemini_generated_image_i6aqyhi6aqyhi6aq-removebg-preview.png"
     ],
     "hair": [
       "hair3.png",
@@ -92,8 +91,7 @@ export const AVATAR_ITEMS = {
       "gemini_generated_image_9w5vsj9w5vsj9w5v-removebg-preview.png",
       "gemini_generated_image_56c94v56c94v56c9-removebg-preview.png",
       "gemini_generated_image_30nj2l30nj2l30nj-removebg-preview.png",
-      "gemini_generated_image_6ir6x36ir6x36ir6-removebg-preview.png",
-      "background_removed_351b3540-bed0-4253-981a-e03ba91e7bfb_output.png"
+      "gemini_generated_image_6ir6x36ir6x36ir6-removebg-preview.png"
     ],
     "beard": [
       "beard00.png",
@@ -120,8 +118,7 @@ export const AVATAR_ITEMS = {
       "picsart_26-05-17_05-59-09-025.png",
       "picsart_26-05-17_05-42-48-821.png",
       "picsart_26-05-17_05-46-34-073.png",
-      "picsart_26-05-17_05-45-55-806.png",
-      "background_removed_74689ae1-01ba-4877-aed5-85237721a166_output.png"
+      "picsart_26-05-17_05-45-55-806.png"
     ]
   }
 
@@ -191,11 +188,6 @@ export const AVATAR_ALIGNMENT = {
         "scale": 62,
         "x": 0,
         "y": -13
-      },
-      "background_removed_58a0a588-715f-488a-a1e1-b7109bf53ed5_output.png": {
-        "scale": 75,
-        "x": 0,
-        "y": -37
       }
     },
     "hair": {
@@ -268,11 +260,6 @@ export const AVATAR_ALIGNMENT = {
         "scale": 146,
         "x": 0,
         "y": 34
-      },
-      "background_removed_351b3540-bed0-4253-981a-e03ba91e7bfb_output.png": {
-        "scale": 108,
-        "x": 0,
-        "y": -32
       }
     },
     "beard": {
@@ -400,11 +387,6 @@ export const AVATAR_ALIGNMENT = {
         "scale": 10,
         "x": 0,
         "y": 80
-      },
-      "background_removed_74689ae1-01ba-4877-aed5-85237721a166_output.png": {
-        "scale": 40,
-        "x": -6,
-        "y": 78
       }
     }
   }
@@ -437,16 +419,4 @@ export { resolveImageFile }
 
 export const AVATAR_PAID = {}
 
-export const AVATAR_COSTUMES = [
-  {
-    "id": "minato",
-    "name": "Minato",
-    "price": 4.99,
-    "head": "head1.png",
-    "items": {
-      "eyes": "background_removed_58a0a588-715f-488a-a1e1-b7109bf53ed5_output.png",
-      "hair": "background_removed_351b3540-bed0-4253-981a-e03ba91e7bfb_output.png",
-      "beard": "background_removed_74689ae1-01ba-4877-aed5-85237721a166_output.png"
-    }
-  }
-]
+export const AVATAR_COSTUMES = []

@@ -6,6 +6,7 @@ import { useToast } from '../Composables/useToast';
 import { AVATAR_BASE, getLayerStyle } from '../Composables/useAvatarConfig';
 import AvatarDisplay from '../Components/AvatarDisplay.vue';
 import NavBar from '../Components/NavBar.vue';
+import SiteFooter from '../Components/SiteFooter.vue';
 
 const { t } = useI18n();
 const { error: toastError, success: toastSuccess } = useToast();
@@ -136,6 +137,7 @@ function buyCostume(costumeId) {
                 </div>
             </div>
         </div>
+        <SiteFooter />
     </div>
 </template>
 

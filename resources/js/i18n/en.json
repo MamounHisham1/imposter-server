@@ -171,5 +171,13 @@
   "pts": "pts",
   "hints_round": "Hints Round",
   "previous_hints": "Previous Hints",
-  "submit_new_hint": "Submit a different word this time!"
+  "submit_new_hint": "Submit a different word this time!",
+  "reward_game_played": "Reward: Game Played",
+  "reward_win_as_crew": "Reward: Win as Crew",
+  "reward_win_as_imposter": "Reward: Win as Traitor",
+  "reward_correct_vote": "Reward: Correct Vote",
+  "purchased_item": "Purchased item: {item}",
+  "purchased_costume": "Purchased costume: {costume}",
+  "granted_by": "Granted by {admin}",
+  "coming_soon": "Coming Soon..."
 }
