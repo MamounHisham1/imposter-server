@@ -40,10 +40,17 @@ watch(state, (val) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(val))
 }, { deep: true })
 
+function isCostumePart(filename) {
+  return (AVATAR_COSTUMES || []).some(c =>
+    (c.items?.eyes === filename) || (c.items?.hair === filename) || (c.items?.beard === filename)
+  )
+}
+
 function getFilteredItems(layer) {
   const gender = state.value.gender
   const genderMap = AVATAR_GENDER[layer] || {}
   return AVATAR_ITEMS[layer].filter(item => {
+    if (isCostumePart(item)) return false
     const g = genderMap[item]
     return !g || g === gender
   })

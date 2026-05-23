@@ -77,7 +77,8 @@ export const AVATAR_ITEMS = {
       "gemini_generated_image_bklnwebklnwebkln-removebg-preview.png",
       "gemini_generated_image_53o3h53o3h53o3h5-removebg-preview.png",
       "gemini_generated_image_i6aqyhi6aqyhi6aq-removebg-preview.png",
-      "background_removed_c9ecc2e8-abe3-484b-bcb4-cb8361f15b4f_output.png"
+      "background_removed_c9ecc2e8-abe3-484b-bcb4-cb8361f15b4f_output.png",
+      "gemini_generated_image_unjm79unjm79unjm-removebg-preview.png"
     ],
     "hair": [
       "hair3.png",
@@ -94,7 +95,8 @@ export const AVATAR_ITEMS = {
       "gemini_generated_image_56c94v56c94v56c9-removebg-preview.png",
       "gemini_generated_image_30nj2l30nj2l30nj-removebg-preview.png",
       "gemini_generated_image_6ir6x36ir6x36ir6-removebg-preview.png",
-      "background_removed_df76f6eb-46e9-46cb-b4a2-12a12a53314a_output.png"
+      "background_removed_df76f6eb-46e9-46cb-b4a2-12a12a53314a_output.png",
+      "background_removed_5355fc47-4643-43ff-ba2d-ff8435292c9b_output.png"
     ],
     "beard": [
       "beard00.png",
@@ -122,7 +124,8 @@ export const AVATAR_ITEMS = {
       "picsart_26-05-17_05-42-48-821.png",
       "picsart_26-05-17_05-46-34-073.png",
       "picsart_26-05-17_05-45-55-806.png",
-      "background_removed_6391bfdb-640d-46c9-b5bb-cad8f3b81f90_output.png"
+      "background_removed_6391bfdb-640d-46c9-b5bb-cad8f3b81f90_output.png",
+      "gemini_generated_image_jsslkqjsslkqjssl-removebg-preview.png"
     ]
   }
 
@@ -197,6 +200,11 @@ export const AVATAR_ALIGNMENT = {
         "scale": 60,
         "x": 0,
         "y": -5
+      },
+      "gemini_generated_image_unjm79unjm79unjm-removebg-preview.png": {
+        "scale": 70,
+        "x": 0,
+        "y": 5
       }
     },
     "hair": {
@@ -274,6 +282,11 @@ export const AVATAR_ALIGNMENT = {
         "scale": 100,
         "x": 0,
         "y": -96
+      },
+      "background_removed_5355fc47-4643-43ff-ba2d-ff8435292c9b_output.png": {
+        "scale": 116,
+        "x": 0,
+        "y": -41
       }
     },
     "beard": {
@@ -406,6 +419,11 @@ export const AVATAR_ALIGNMENT = {
         "scale": 41,
         "x": -38,
         "y": 72
+      },
+      "gemini_generated_image_jsslkqjsslkqjssl-removebg-preview.png": {
+        "scale": 41,
+        "x": 0,
+        "y": 94
       }
     }
   }
@@ -442,12 +460,23 @@ export const AVATAR_COSTUMES = [
   {
     "id": "sherif",
     "name": "Sherif",
-    "price": 4.99,
-    "head": "head1.png",
+    "price": 1.5,
+    "head": "head7.png",
     "items": {
       "eyes": "background_removed_c9ecc2e8-abe3-484b-bcb4-cb8361f15b4f_output.png",
       "hair": "background_removed_df76f6eb-46e9-46cb-b4a2-12a12a53314a_output.png",
       "beard": "background_removed_6391bfdb-640d-46c9-b5bb-cad8f3b81f90_output.png"
+    }
+  },
+  {
+    "id": "eid_sheep",
+    "name": "Eid Sheep",
+    "price": 0.1,
+    "head": "head2.png",
+    "items": {
+      "eyes": "gemini_generated_image_unjm79unjm79unjm-removebg-preview.png",
+      "hair": "background_removed_5355fc47-4643-43ff-ba2d-ff8435292c9b_output.png",
+      "beard": "gemini_generated_image_jsslkqjsslkqjssl-removebg-preview.png"
     }
   }
 ]
