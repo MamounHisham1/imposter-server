@@ -451,16 +451,4 @@ export { resolveImageFile }
 
 export const AVATAR_PAID = {}
 
-export const AVATAR_COSTUMES = [
-    {
-        "id": "eid_sheep",
-        "name": "Eid Sheep",
-        "price": 7,
-        "head": "head1.png",
-        "items": {
-            "eyes": "gemini_generated_image_unjm79unjm79unjm-removebg-preview.png",
-            "hair": "background_removed_5355fc47-4643-43ff-ba2d-ff8435292c9b_output.png",
-            "beard": "gemini_generated_image_jsslkqjsslkqjssl-removebg-preview.png"
-        }
-    }
-]
+export const AVATAR_COSTUMES = []

@@ -126,10 +126,7 @@ class AvatarBuilderController extends Controller
 
         // Replace AVATAR_PAID
         $paid = $data['paid'] ?? [];
-        if (empty($paid)) {
-            $paid = new \stdClass;
-        }
-        $content = $this->replaceExportConst($content, 'AVATAR_PAID', (array) $paid);
+        $content = $this->replaceExportConst($content, 'AVATAR_PAID', empty($paid) ? (object) [] : $paid);
 
         // Replace AVATAR_COSTUMES with auto-generated IDs
         $costumes = array_map(function ($c) {
@@ -267,7 +264,7 @@ class AvatarBuilderController extends Controller
         return json_decode($json, true);
     }
 
-    private function replaceExportConst(string $content, string $name, array $data): string
+    private function replaceExportConst(string $content, string $name, array|object $data): string
     {
         $marker = "export const {$name} = ";
         $idx = strpos($content, $marker);
