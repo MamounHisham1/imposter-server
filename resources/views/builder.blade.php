@@ -481,8 +481,12 @@
       </div>
 
       <div style="display:flex;gap:6px;margin-bottom:6px;">
+        <input type="text" id="promoCustomCode" placeholder="Custom code (e.g. YOUTUBER-1)" maxlength="50"
+          style="flex:1;padding:4px 6px;font-family:'Lalezar',cursive;font-size:11px;background:#1a0e08;color:#d3bfa1;border:1px solid #5c3a21;border-radius:4px;">
         <input type="number" id="promoMaxUses" min="1" placeholder="Max uses (blank=unlimited)"
           style="flex:1;padding:4px 6px;font-family:'Lalezar',cursive;font-size:11px;background:#1a0e08;color:#d3bfa1;border:1px solid #5c3a21;border-radius:4px;">
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:6px;">
         <input type="datetime-local" id="promoExpires"
           style="flex:1;padding:4px 6px;font-family:'Lalezar',cursive;font-size:11px;background:#1a0e08;color:#d3bfa1;border:1px solid #5c3a21;border-radius:4px;">
       </div>
@@ -1564,6 +1568,7 @@ async function generatePromoCode() {
 
   const maxUses = document.getElementById('promoMaxUses').value || null;
   const expiresAt = document.getElementById('promoExpires').value || null;
+  const customCode = document.getElementById('promoCustomCode').value.trim() || null;
 
   try {
     const resp = await adminFetch('/admin/api/builder/promo-codes', {
@@ -1573,6 +1578,7 @@ async function generatePromoCode() {
         reward_id: rewardId,
         max_uses: maxUses ? parseInt(maxUses) : null,
         expires_at: expiresAt || null,
+        custom_code: customCode,
       }),
     });
 

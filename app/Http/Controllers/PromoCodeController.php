@@ -53,6 +53,7 @@ class PromoCodeController extends Controller
             'reward_id' => 'required|string',
             'max_uses' => 'nullable|integer|min:1',
             'expires_at' => 'nullable|date',
+            'custom_code' => 'nullable|string|max:50',
         ]);
 
         try {
@@ -61,6 +62,7 @@ class PromoCodeController extends Controller
                 $validated['reward_id'],
                 $validated['max_uses'] ?? null,
                 $validated['expires_at'] ?? null,
+                $validated['custom_code'] ?? null,
             );
         } catch (\Exception $e) {
             throw ValidationException::withMessages(['error' => $e->getMessage()]);

@@ -16,11 +16,16 @@ class PromoCodeService
         private AvatarConfigService $avatarConfig,
     ) {}
 
-    public function generateCode(string $rewardType, string $rewardId, ?int $maxUses = null, ?string $expiresAt = null): PromoCode
+    public function generateCode(string $rewardType, string $rewardId, ?int $maxUses = null, ?string $expiresAt = null, ?string $customCode = null): PromoCode
     {
         $this->validateReward($rewardType, $rewardId);
 
-        $code = $this->generateHumanReadableCode();
+        if ($customCode) {
+            $code = strtoupper(trim($customCode));
+            throw_if(PromoCode::where('code', $code)->exists(), new \Exception('Code already exists'));
+        } else {
+            $code = $this->generateHumanReadableCode();
+        }
 
         return PromoCode::create([
             'code' => $code,
