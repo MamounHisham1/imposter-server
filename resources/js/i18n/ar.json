@@ -117,7 +117,7 @@
   "costumes": "الأزياء",
   "elements": "العناصر",
   "purchase_confirm": "تأكيد الشراء",
-  "costume_locked": "زز كامل - لا يمكن تغيير الأجزاء",
+  "costume_locked": "زي كامل - لا يمكن تغيير الأجزاء",
   "locked_item": "مقفل",
   "visit_shop": "زيارة المتجر",
   "chat_title": "صالون الدردشة",
@@ -195,5 +195,9 @@
   "error_page_generic_title": "مواجهة غير متوقعة",
   "error_page_generic_desc": "لقد حدثت مواجهة غير متوقعة في البلدة. نحن نتفحص ذخيرتنا الآن. حاول مرة أخرى قريباً يا شريك.",
   "error_page_generic_btn": "الرجوع للخلف",
-  "no_transactions": "لا توجد معاملات بعد. العب الألعاب لكسب العملات!"
+  "no_transactions": "لا توجد معاملات بعد. العب الألعاب لكسب العملات!",
+  "promo_have_code": "لديك رمز ترويجي؟",
+  "promo_placeholder": "رمز-ترويجي",
+  "promo_redeem": "استرداد",
+  "promo_login_required": "سجّل دخولك لاسترداد الرموز الترويجية"
 }

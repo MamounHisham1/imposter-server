@@ -94,7 +94,7 @@ class ShopService
             ->toArray();
     }
 
-    private function classifyLayer(string $filename): ?string
+    public function classifyLayer(string $filename): ?string
     {
         if (str_starts_with($filename, 'eye')) {
             return 'eyes';

@@ -52,6 +52,12 @@ class User extends Authenticatable
         return $this->hasMany(Player::class);
     }
 
+    public function redeemedPromoCodes()
+    {
+        return $this->belongsToMany(PromoCode::class, 'promo_code_redemptions')
+            ->withTimestamps();
+    }
+
     public function ownsAvatarItem(string $filename): bool
     {
         return $this->purchasedItems()

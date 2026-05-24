@@ -52,6 +52,9 @@ const props = defineProps({
 const localRooms = ref([...props.rooms]);
 const showSettings = ref(false);
 const showCostumes = ref(false);
+const showPromoInput = ref(false);
+const promoCode = ref('');
+const promoSubmitting = ref(false);
 
 const avatarData = computed(() => buildAvatarData());
 
@@ -65,6 +68,7 @@ onMounted(async () => {
                 updateOwnership(data.elements, data.costumes);
             }
         } catch {}
+        fetchInventory();
     }
 });
 
@@ -170,6 +174,47 @@ function submitJoin() {
         },
     });
 }
+
+// Promo code: auto-fill from URL param
+onMounted(() => {
+    const params = new URLSearchParams(window.location.search);
+    const codeParam = params.get('code');
+    if (codeParam) {
+        promoCode.value = codeParam;
+        showPromoInput.value = true;
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+});
+
+function redeemPromoCode() {
+    if (!promoCode.value.trim() || promoSubmitting.value) return;
+    if (!props.auth?.user) {
+        toastError(t('promo_login_required'));
+        return;
+    }
+    promoSubmitting.value = true;
+    router.post('/promo/redeem', { code: promoCode.value.trim() }, {
+        preserveScroll: true,
+        onSuccess: async () => {
+            promoCode.value = '';
+            showPromoInput.value = false;
+            // Re-fetch ownership data so the avatar builder and costume grid reflect the new item
+            try {
+                const resp = await fetch('/api/inventory');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    updateOwnership(data.elements, data.costumes);
+                }
+            } catch {}
+            fetchInventory();
+        },
+        onError: (errors) => {
+            const msg = Object.values(errors)[0];
+            if (msg) toastError(msg);
+        },
+        onFinish: () => { promoSubmitting.value = false; },
+    });
+}
 </script>
 
 <template>
@@ -258,8 +303,8 @@ function submitJoin() {
                         </div>
 
                         <!-- Active costume banner -->
-                        <div v-if="isCostumeLocked" class="flex justify-center items-center gap-2 mb-2 p-2 bg-[#8b5cf6]/20 border border-[#8b5cf6] rounded-lg">
-                            <span class="text-sm text-[#8b5cf6]">{{ t('costume_locked') }}</span>
+                        <div v-if="isCostumeLocked" class="flex justify-center items-center gap-2 mb-2 p-2 bg-[#d3bfa1]/60 border-2 border-dashed border-[#8b4513] rounded-lg">
+                            <span class="text-sm text-[#8b4513]">{{ t('costume_locked') }}</span>
                             <button type="button" @click="clearCostume()" class="text-xs text-[#8b2500] underline">{{ t('cancel') }}</button>
                         </div>
 
@@ -383,6 +428,20 @@ function submitJoin() {
             </div>
         </div>
 
+        <!-- Promo Code Redeem -->
+        <div v-if="auth.user" class="mt-4">
+            <button v-if="!showPromoInput" @click="showPromoInput = true" class="western-btn-alt px-4 py-1.5 border-2 text-sm flex items-center gap-1.5 cursor-pointer">
+                <span>{{ t('promo_have_code') }}</span>
+            </button>
+            <form v-else @submit.prevent="redeemPromoCode" class="flex gap-2 max-w-sm mx-auto">
+                <input v-model="promoCode" type="text" class="western-input flex-1 text-lg text-center uppercase tracking-widest" :placeholder="t('promo_placeholder')" maxlength="30" />
+                <button type="submit" :disabled="promoSubmitting" class="western-btn text-lg px-4 py-1 disabled:opacity-50">
+                    {{ t('promo_redeem') }}
+                </button>
+                <button type="button" @click="showPromoInput = false; promoCode = ''" class="western-btn-alt px-2 py-1 border-2 text-sm">{{ t('cancel') }}</button>
+            </form>
+        </div>
+
         <SiteFooter />
     </div>
 </template>
@@ -439,7 +498,7 @@ function submitJoin() {
 .none-btn.active { background: #8b4513; color: #e8dcc4; border-color: #4a1500; }
 .costume-thumb { width: 56px; border-radius: 6px; border: 2px solid #b8a07e; background: #d3bfa1; padding: 4px; cursor: pointer; transition: all 0.15s; position: relative; }
 .costume-thumb:hover { border-color: #8b4513; }
-.costume-thumb.active { border-color: #8b5cf6; box-shadow: 0 0 8px rgba(139,92,246,0.3); }
+.costume-thumb.active { border-color: #8b4513; box-shadow: 0 0 8px rgba(139,69,19,0.3); }
 .costume-thumb.locked { opacity: 0.6; cursor: not-allowed; }
 .costume-mini-avatar { width: 100%; aspect-ratio: 1; border-radius: 4px; background: #d3bfa1; overflow: hidden; position: relative; }
 .costume-mini-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }

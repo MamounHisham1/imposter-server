@@ -195,5 +195,9 @@
   "error_page_generic_title": "WILD SHOWDOWN",
   "error_page_generic_desc": "An unexpected standoff has occurred. We're checkin' our ammunition. Try again shortly, partner.",
   "error_page_generic_btn": "Head Back",
-  "no_transactions": "No transactions yet. Play games to earn credits!"
+  "no_transactions": "No transactions yet. Play games to earn credits!",
+  "promo_have_code": "Have a promo code?",
+  "promo_placeholder": "PROMO-CODE",
+  "promo_redeem": "Redeem",
+  "promo_login_required": "Please log in to redeem promo codes"
 }

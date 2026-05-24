@@ -58,7 +58,8 @@ export const AVATAR_GENDER = {
       "picsart_26-05-17_05-43-43-050.png": "female",
       "picsart_26-05-17_05-45-55-806.png": "male",
       "picsart_26-05-17_05-46-34-073.png": "female",
-      "picsart_26-05-17_05-59-09-025.png": "female"
+      "picsart_26-05-17_05-59-09-025.png": "female",
+      "gemini_generated_image_jsslkqjsslkqjssl-removebg-preview.png": "female"
     }
   }
 
@@ -471,8 +472,8 @@ export const AVATAR_COSTUMES = [
   {
     "id": "eid_sheep",
     "name": "Eid Sheep",
-    "price": 0.1,
-    "head": "head2.png",
+    "price": 4.99,
+    "head": "head5.png",
     "items": {
       "eyes": "gemini_generated_image_unjm79unjm79unjm-removebg-preview.png",
       "hair": "background_removed_5355fc47-4643-43ff-ba2d-ff8435292c9b_output.png",

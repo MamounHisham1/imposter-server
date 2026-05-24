@@ -4,11 +4,13 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\PromoCodeController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\WellKnownController;
+use App\Http\Middleware\AdminAuth;
 use App\Models\Player;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -55,6 +57,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/shop/buy/element', [ShopController::class, 'buyElement'])->name('shop.buy.element');
     Route::post('/shop/buy/costume', [ShopController::class, 'buyCostume'])->name('shop.buy.costume');
     Route::get('/api/inventory', [ShopController::class, 'inventory'])->name('api.inventory');
+    Route::post('/promo/redeem', [PromoCodeController::class, 'redeem'])->name('promo.redeem');
 });
 
 Route::post('/room', [RoomController::class, 'store'])->name('room.store');
@@ -89,7 +92,7 @@ Route::post('/game/{code}/rematch', [GameController::class, 'rematch'])->name('g
 Route::post('/game/{code}/chat', [GameController::class, 'sendChat'])->name('game.chat');
 
 // Admin Dashboard
-Route::prefix('admin')->middleware(\App\Http\Middleware\AdminAuth::class)->group(function () {
+Route::prefix('admin')->middleware(AdminAuth::class)->group(function () {
     Route::get('/', [AdminController::class, 'index'])->name('admin.dashboard');
     Route::get('/api/overview', [AdminController::class, 'apiOverview'])->name('admin.api.overview');
     Route::get('/api/charts', [AdminController::class, 'apiCharts'])->name('admin.api.charts');
