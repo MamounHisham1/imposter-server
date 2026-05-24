@@ -449,8 +449,7 @@ export function getLayerStyle(layer, filename, containerSize) {
 
 export { resolveImageFile }
 
-export const AVATAR_PAID = []
-]
+export const AVATAR_PAID = {}
 
 export const AVATAR_COSTUMES = [
     {

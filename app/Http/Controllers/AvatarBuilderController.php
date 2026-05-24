@@ -126,7 +126,10 @@ class AvatarBuilderController extends Controller
 
         // Replace AVATAR_PAID
         $paid = $data['paid'] ?? [];
-        $content = $this->replaceExportConst($content, 'AVATAR_PAID', $paid);
+        if (empty($paid)) {
+            $paid = new \stdClass;
+        }
+        $content = $this->replaceExportConst($content, 'AVATAR_PAID', (array) $paid);
 
         // Replace AVATAR_COSTUMES with auto-generated IDs
         $costumes = array_map(function ($c) {
