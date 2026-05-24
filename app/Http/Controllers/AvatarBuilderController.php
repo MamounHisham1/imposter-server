@@ -146,6 +146,9 @@ class AvatarBuilderController extends Controller
             'costumes' => $costumes,
         ], JSON_PRETTY_PRINT));
 
+        // Trigger frontend build
+        $this->runBuild();
+
         return response()->json(['status' => 'synced', 'path' => $configPath]);
     }
 
@@ -229,6 +232,20 @@ class AvatarBuilderController extends Controller
             'layer' => $layer,
             'deleted' => $deleted,
         ]);
+    }
+
+    private function runBuild(): void
+    {
+        $npm = trim(shell_exec('which npm 2>/dev/null') ?? '');
+        if (! $npm || ! file_exists(base_path('node_modules'))) {
+            return;
+        }
+
+        exec("{$npm} run build --prefix ".escapeshellarg(base_path()).' 2>&1', $output, $exitCode);
+
+        if ($exitCode !== 0) {
+            logger()->warning('Avatar builder: npm run build failed', ['output' => $output]);
+        }
     }
 
     private function extractObj(string $content, string $name): ?array
