@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AvatarBuilderController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\PromoCodeController;
@@ -101,4 +102,17 @@ Route::prefix('admin')->middleware(AdminAuth::class)->group(function () {
     Route::get('/api/word-stats', [AdminController::class, 'apiWordStats'])->name('admin.api.word-stats');
     Route::get('/api/hourly-activity', [AdminController::class, 'apiHourlyActivity'])->name('admin.api.hourly-activity');
     Route::get('/api/visitor-charts', [AdminController::class, 'apiVisitorCharts'])->name('admin.api.visitor-charts');
+
+    // Avatar Builder
+    Route::get('/builder', [AvatarBuilderController::class, 'show'])->name('admin.builder');
+    Route::get('/api/builder/config', [AvatarBuilderController::class, 'config'])->name('admin.builder.config');
+    Route::get('/api/builder/files', [AvatarBuilderController::class, 'files'])->name('admin.builder.files');
+    Route::post('/api/builder/sync', [AvatarBuilderController::class, 'sync'])->name('admin.builder.sync');
+    Route::post('/api/builder/upload', [AvatarBuilderController::class, 'upload'])->name('admin.builder.upload');
+    Route::post('/api/builder/remove', [AvatarBuilderController::class, 'remove'])->name('admin.builder.remove');
+
+    // Promo code admin (session-authed)
+    Route::get('/api/builder/promo-codes', [PromoCodeController::class, 'adminList'])->name('admin.builder.promo-codes.list');
+    Route::post('/api/builder/promo-codes', [PromoCodeController::class, 'adminCreate'])->name('admin.builder.promo-codes.create');
+    Route::post('/api/builder/promo-codes/delete', [PromoCodeController::class, 'adminDelete'])->name('admin.builder.promo-codes.delete');
 });
