@@ -434,7 +434,7 @@ function redeemPromoCode() {
                 <span>{{ t('promo_have_code') }}</span>
             </button>
             <form v-else @submit.prevent="redeemPromoCode" class="flex gap-2 max-w-sm mx-auto">
-                <input v-model="promoCode" type="text" class="western-input flex-1 text-lg text-center uppercase tracking-widest" :placeholder="t('promo_placeholder')" maxlength="30" />
+                <input v-model="promoCode" type="text" class="promo-input flex-1 text-lg text-center uppercase tracking-widest" :placeholder="t('promo_placeholder')" maxlength="30" />
                 <button type="submit" :disabled="promoSubmitting" class="western-btn text-lg px-4 py-1 disabled:opacity-50">
                     {{ t('promo_redeem') }}
                 </button>
@@ -454,6 +454,9 @@ function redeemPromoCode() {
 .western-input { background: transparent; border: none; border-bottom: 2px dashed #8b4513; color: #4a2511; font-family: 'Lalezar', cursive; }
 @media (min-width: 768px) { .western-input { border-bottom-width: 3px; } }
 .western-input:focus { outline: none; border-bottom-style: solid; }
+.promo-input { background: transparent; border: none; border-bottom: 2px dashed #8b4513; color: #3a1500; font-family: 'Lalezar', cursive; }
+.promo-input::placeholder { color: #a0845c; opacity: 1; }
+.promo-input:focus { outline: none; border-bottom-style: solid; }
 .western-btn { background-color: #8b2500; color: #e8dcc4; border: 3px solid #4a1500; box-shadow: 2px 2px 0px #3a1000; transition: all 0.1s; cursor: pointer; }
 @media (min-width: 768px) { .western-btn { border-width: 4px; box-shadow: 3px 3px 0px #3a1000; } }
 .western-btn:active:not(:disabled) { box-shadow: 0px 0px 0px #3a1000; transform: translate(2px, 2px); }
