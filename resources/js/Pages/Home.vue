@@ -454,8 +454,8 @@ function redeemPromoCode() {
 .western-input { background: transparent; border: none; border-bottom: 2px dashed #8b4513; color: #4a2511; font-family: 'Lalezar', cursive; }
 @media (min-width: 768px) { .western-input { border-bottom-width: 3px; } }
 .western-input:focus { outline: none; border-bottom-style: solid; }
-.promo-input { background: transparent; border: none; border-bottom: 2px dashed #8b4513; color: #3a1500; font-family: 'Lalezar', cursive; }
-.promo-input::placeholder { color: #a0845c; opacity: 1; }
+.promo-input { background: transparent; border: none; border-bottom: 2px dashed #8b4513; color: #5c2e0e; font-family: 'Lalezar', cursive; }
+.promo-input::placeholder { color: #b89a6a; opacity: 1; }
 .promo-input:focus { outline: none; border-bottom-style: solid; }
 .western-btn { background-color: #8b2500; color: #e8dcc4; border: 3px solid #4a1500; box-shadow: 2px 2px 0px #3a1000; transition: all 0.1s; cursor: pointer; }
 @media (min-width: 768px) { .western-btn { border-width: 4px; box-shadow: 3px 3px 0px #3a1000; } }
