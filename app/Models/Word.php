@@ -11,5 +11,12 @@ class Word extends Model
         'hint_en',
         'word_ar',
         'hint_ar',
+        'difficulty',
+        'category',
+        'enabled',
+    ];
+
+    protected $casts = [
+        'enabled' => 'boolean',
     ];
 }

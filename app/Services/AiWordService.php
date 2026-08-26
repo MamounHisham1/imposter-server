@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Word;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
@@ -10,7 +11,9 @@ use function Laravel\Ai\agent;
 class AiWordService
 {
     /**
-     * Hardcoded fallback word/hint pairs used when AI is unavailable (medium difficulty).
+     * Emergency static fallback (English) used only when the `words` table
+     * is empty or yields no candidates. The curated word pool in the DB is
+     * the primary source of truth.
      */
     private const FALLBACK_WORDS = [
         ['word' => 'Pizza', 'hint' => 'Cheese'],
@@ -63,9 +66,6 @@ class AiWordService
         ['word' => 'Jungle', 'hint' => 'Vines'],
     ];
 
-    /**
-     * Fallback words for easy difficulty: very common, everyday words.
-     */
     private const FALLBACK_WORDS_EASY = [
         ['word' => 'Apple', 'hint' => 'Tree'],
         ['word' => 'Car', 'hint' => 'Road'],
@@ -89,9 +89,6 @@ class AiWordService
         ['word' => 'Cup', 'hint' => 'Drink'],
     ];
 
-    /**
-     * Fallback words for hard difficulty: uncommon, specific nouns.
-     */
     private const FALLBACK_WORDS_HARD = [
         ['word' => 'Astrolabe', 'hint' => 'Navigation'],
         ['word' => 'Trebuchet', 'hint' => 'Siege'],
@@ -116,7 +113,8 @@ class AiWordService
     ];
 
     /**
-     * Broader banned words list to reduce repetition across games.
+     * Words excluded defensively at runtime even if they slip into the pool.
+     * The generator also avoids these when building the pool.
      */
     private const BANNED_WORDS = [
         'pizza', 'car', 'house', 'dog', 'ocean', 'tree', 'sun', 'moon', 'cat', 'fish',
@@ -129,59 +127,33 @@ class AiWordService
     ];
 
     /**
-     * Generate a random word and imposter hint using AI.
+     * Resolve a single word/hint pair from the curated DB pool.
      *
-     * @param  array  $usedWords  Words to avoid repeating.
-     * @param  string  $language  Language code (e.g. 'en', 'ar').
-     * @param  string|null  $category  Optional category to constrain word generation.
-     * @param  string  $difficulty  Difficulty level: 'easy', 'medium', 'hard'.
+     * @param  array  $usedWords  Words to avoid repeating (in the room's language).
+     * @param  string  $language  Language code ('en' or 'ar').
+     * @param  string|null  $category  Optional category to constrain to.
+     * @param  string  $difficulty  'easy', 'medium', or 'hard'.
      * @return array{word: string, hint: string}
      */
     public function generateWord(array $usedWords, string $language = 'en', ?string $category = null, string $difficulty = 'medium'): array
     {
-        try {
-            $avoidList = implode(', ', array_slice($usedWords, -30));
+        $pairs = $this->pickFromPool(1, $usedWords, $language, $category, $difficulty);
 
-            $prompt = $this->buildPrompt($avoidList, $language, $category, $difficulty);
-
-            $wordAgent = agent(
-                instructions: 'You are a creative word game assistant. You always respond with valid JSON matching the exact schema requested. Be creative and varied in your word choices.',
-                schema: fn ($schema) => [
-                    'word' => $schema->string()->description('A random everyday noun')->required(),
-                    'hint' => $schema->string()->description('A related but vague hint word')->required(),
-                ],
-            );
-
-            $response = $wordAgent->prompt($prompt, timeout: 120);
-
-            $pair = $this->extractWordPair($response->structured ?? [])
-                ?? $this->extractWordPair($this->parseJsonLoose($response->text ?? ''));
-
-            if ($pair !== null) {
-                return $pair;
-            }
-
-            Log::warning('AI word generation returned unusable payload, using fallback', [
-                'text' => $response->text ?? null,
-                'structured' => $response->structured ?? null,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('AI word generation failed, using fallback', [
-                'error' => $e->getMessage(),
-            ]);
+        if (! empty($pairs)) {
+            return $pairs[0];
         }
 
-        return $this->getFallbackWord($usedWords, $difficulty);
+        return $this->fallbackWord($difficulty);
     }
 
     /**
-     * Generate multiple word/hint pairs in a single AI call.
+     * Resolve multiple word/hint pairs from the curated DB pool.
      *
-     * @param  int  $count  Number of pairs to generate.
+     * @param  int  $count  Number of distinct pairs to return.
      * @param  array  $usedWords  Words to avoid repeating.
-     * @param  string  $language  Language code (e.g. 'en', 'ar').
-     * @param  string|null  $category  Optional category to constrain word generation.
-     * @param  string  $difficulty  Difficulty level: 'easy', 'medium', 'hard'.
+     * @param  string  $language  Language code ('en' or 'ar').
+     * @param  string|null  $category  Optional category to constrain to.
+     * @param  string  $difficulty  'easy', 'medium', or 'hard'.
      * @return array<int, array{word: string, hint: string}>
      */
     public function generateWords(int $count, array $usedWords = [], string $language = 'en', ?string $category = null, string $difficulty = 'medium'): array
@@ -190,458 +162,114 @@ class AiWordService
             return [];
         }
 
-        try {
-            $avoidList = implode(', ', array_slice($usedWords, -30));
-            $prompt = $this->buildBatchPrompt($count, $avoidList, $language, $category, $difficulty);
+        $pairs = $this->pickFromPool($count, $usedWords, $language, $category, $difficulty);
 
-            $batchAgent = agent(
-                instructions: 'You are a creative word game assistant. You always respond with valid JSON matching the exact schema requested. Be creative and varied in your word choices, ensuring every entry is distinct.',
-                schema: fn ($schema) => [
-                    'rounds' => $schema->array()
-                        ->items($schema->object([
-                            'word' => $schema->string()->required(),
-                            'hint' => $schema->string()->required(),
-                        ]))
-                        ->required(),
-                ],
-            );
-
-            $response = $batchAgent->prompt($prompt, timeout: 180);
-
-            $pairs = $this->extractWordPairs($response->structured ?? [])
-                ?? $this->extractWordPairs($this->parseJsonLoose($response->text ?? ''));
-
-            if (! empty($pairs)) {
-                $pairs = $this->dedupePairs($pairs);
-
-                if (count($pairs) >= $count) {
-                    return array_slice($pairs, 0, $count);
-                }
-
-                $existing = array_merge($usedWords, array_column($pairs, 'word'));
-                while (count($pairs) < $count) {
-                    $pairs[] = $this->generateWord($existing, $language, $category, $difficulty);
-                    $existing[] = end($pairs)['word'];
-                }
-
-                return $pairs;
-            }
-
-            Log::warning('AI batch word generation returned unusable payload, using fallback', [
-                'text' => $response->text ?? null,
-                'structured' => $response->structured ?? null,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('AI batch word generation failed, falling back to per-round generation', [
-                'error' => $e->getMessage(),
-            ]);
+        while (count($pairs) < $count) {
+            $pairs[] = $this->fallbackWord($difficulty);
         }
 
-        $pairs = [];
-        $existing = $usedWords;
-        for ($i = 0; $i < $count; $i++) {
-            $pair = $this->generateWord($existing, $language, $category, $difficulty);
-            $pairs[] = $pair;
-            $existing[] = $pair['word'];
-        }
-
-        return $pairs;
+        return array_slice($pairs, 0, $count);
     }
 
     /**
-     * Extract a list of word/hint pairs from an arbitrary array shape.
+     * Query the curated pool for distinct, unused word/hint pairs.
      *
-     * @param  array<string, mixed>|array<int, mixed>|null  $data
-     * @return array<int, array{word: string, hint: string}>|null
+     * @return array<int, array{word: string, hint: string}>
      */
-    private function extractWordPairs(?array $data): ?array
+    private function pickFromPool(int $count, array $usedWords, string $language, ?string $category, string $difficulty): array
     {
-        if (! is_array($data) || empty($data)) {
-            return null;
+        if (! Word::exists()) {
+            return [];
         }
 
-        $list = null;
-        foreach (['rounds', 'words', 'items', 'data', 'pairs'] as $key) {
-            if (isset($data[$key]) && is_array($data[$key])) {
-                $list = $data[$key];
+        $exclude = $this->buildExcludeList($usedWords);
+
+        $baseQuery = Word::where('enabled', true)
+            ->whereIn('difficulty', $this->difficultiesFor($difficulty));
+
+        // Only constrain by category when it has a healthy supply of rows;
+        // otherwise fall back to "any category" so the round can still start.
+        if ($category !== null) {
+            $categoryQuery = (clone $baseQuery)->where('category', $category);
+            if ($categoryQuery->count() >= 12) {
+                $baseQuery = $categoryQuery;
+            }
+        }
+
+        // Over-fetch (in random order) so PHP-side dedupe/exclusion can still
+        // yield the requested count even after dropping used/banned words.
+        $rows = (clone $baseQuery)
+            ->inRandomOrder()
+            ->limit(max($count * 6, 30))
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            if (in_array(mb_strtolower($row->word_en), $exclude, true)) {
+                continue;
+            }
+            if (in_array(mb_strtolower($row->word_ar), $exclude, true)) {
+                continue;
+            }
+
+            $out[] = $language === 'ar'
+                ? ['word' => $row->word_ar, 'hint' => $row->hint_ar]
+                : ['word' => $row->word_en, 'hint' => $row->hint_en];
+
+            if (count($out) >= $count) {
                 break;
             }
         }
 
-        if ($list === null && array_is_list($data)) {
-            $list = $data;
-        }
-
-        if (! is_array($list)) {
-            return null;
-        }
-
-        $pairs = [];
-        foreach ($list as $item) {
-            if (! is_array($item)) {
-                continue;
-            }
-            $pair = $this->extractWordPair($item);
-            if ($pair !== null) {
-                $pairs[] = $pair;
-            }
-        }
-
-        return $pairs ?: null;
-    }
-
-    /**
-     * Remove duplicate word entries (case-insensitive on word value).
-     *
-     * @param  array<int, array{word: string, hint: string}>  $pairs
-     * @return array<int, array{word: string, hint: string}>
-     */
-    private function dedupePairs(array $pairs): array
-    {
-        $seen = [];
-        $out = [];
-        foreach ($pairs as $pair) {
-            $key = mb_strtolower($pair['word']);
-            if (isset($seen[$key])) {
-                continue;
-            }
-            $seen[$key] = true;
-            $out[] = $pair;
+        if (empty($out)) {
+            Log::warning('Word pool returned no candidates for the requested filters', [
+                'language' => $language,
+                'category' => $category,
+                'difficulty' => $difficulty,
+                'pool_size' => Word::count(),
+            ]);
         }
 
         return $out;
     }
 
     /**
-     * Pull a word/hint pair out of an arbitrary array, tolerating common
-     * alternate key names that the LLM sometimes produces.
+     * Map a requested difficulty to the pool difficulties we should draw from.
+     * 'hard' falls back to 'medium' because the pool only ships easy + medium.
      *
-     * @param  array<string, mixed>|null  $data
-     * @return array{word: string, hint: string}|null
+     * @return string[]
      */
-    private function extractWordPair(?array $data): ?array
-    {
-        if (! is_array($data) || empty($data)) {
-            return null;
-        }
-
-        $wordKeys = ['word', 'noun', 'secret', 'answer', 'الكلمة', 'كلمة'];
-        $hintKeys = ['hint', 'clue', 'related', 'تلميح', 'الدليل'];
-
-        $word = null;
-        $hint = null;
-
-        foreach ($wordKeys as $key) {
-            if (isset($data[$key]) && is_string($data[$key]) && trim($data[$key]) !== '') {
-                $word = trim($data[$key]);
-                break;
-            }
-        }
-
-        foreach ($hintKeys as $key) {
-            if (isset($data[$key]) && is_string($data[$key]) && trim($data[$key]) !== '') {
-                $hint = trim($data[$key]);
-                break;
-            }
-        }
-
-        if ($word === null || $hint === null) {
-            return null;
-        }
-
-        return ['word' => $word, 'hint' => $hint];
-    }
-
-    /**
-     * Parse JSON from a string, tolerating markdown code fences and
-     * surrounding text the LLM may have added.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function parseJsonLoose(string $text): ?array
-    {
-        $text = trim($text);
-
-        if ($text === '') {
-            return null;
-        }
-
-        $decoded = json_decode($text, true);
-        if (is_array($decoded)) {
-            return $decoded;
-        }
-
-        if (preg_match('/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/s', $text, $match)) {
-            $decoded = json_decode($match[0], true);
-            if (is_array($decoded)) {
-                return $decoded;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Get difficulty-specific instructions for the prompt.
-     *
-     * @return array{wordInstruction: string, hintInstruction: string, examples: string}
-     */
-    private function getDifficultyInstructions(string $difficulty, string $language = 'en'): array
+    private function difficultiesFor(string $difficulty): array
     {
         return match ($difficulty) {
-            'easy' => $this->getEasyDifficultyInstructions($language),
-            'hard' => $this->getHardDifficultyInstructions($language),
-            default => $this->getMediumDifficultyInstructions($language),
+            'easy' => ['easy'],
+            'hard' => ['hard', 'medium'],
+            default => ['medium'],
         };
     }
 
     /**
-     * Easy difficulty: very common, everyday words with obvious hints.
+     * Build a lowercased exclusion list from used words + the defensive banned list.
+     *
+     * @return string[]
      */
-    private function getEasyDifficultyInstructions(string $language): array
+    private function buildExcludeList(array $usedWords): array
     {
-        if ($language === 'ar') {
-            return [
-                'wordInstruction' => "The word should be a VERY COMMON, everyday object that everyone knows.\nExamples: apple, car, house, dog, sun, book, phone, chair\nUse simpler words from common categories: food, animals, household items, clothing.",
-                'hintInstruction' => "The hint should be a VERY obvious association that anyone would guess.\nExample: apple -> tree, dog -> park, book -> story.",
-                'examples' => "- GOOD: word=\"Apple\", hint=\"Tree\" — tree also fits: leaf, forest, wood, branch\n- GOOD: word=\"Car\", hint=\"Road\" — road also fits: travel, signal, walk, highway\n- GOOD: word=\"Dog\", hint=\"Park\" — park also fits: flowers, bench, fountain, grass\n- GOOD: word=\"Egg\", hint=\"Breakfast\" — breakfast also fits: toast, juice, cereal, morning",
-            ];
+        $exclude = array_map('mb_strtolower', $usedWords);
+
+        foreach (self::BANNED_WORDS as $banned) {
+            $exclude[] = $banned;
         }
 
-        return [
-            'wordInstruction' => "The word should be a VERY COMMON, everyday object that everyone knows.\nExamples: apple, car, house, dog, sun, book, phone, chair\nUse simpler words from common categories: food, animals, household items, clothing.",
-            'hintInstruction' => "The hint should be a VERY obvious association that anyone would guess.\nExample: apple -> tree, dog -> park, book -> story.",
-            'examples' => "- GOOD: word=\"Apple\", hint=\"Tree\" — tree also fits: leaf, forest, wood, branch\n- GOOD: word=\"Car\", hint=\"Road\" — road also fits: travel, signal, walk, highway\n- GOOD: word=\"Dog\", hint=\"Park\" — park also fits: flowers, bench, fountain, grass\n- GOOD: word=\"Egg\", hint=\"Breakfast\" — breakfast also fits: toast, juice, cereal, morning",
-        ];
+        return array_values(array_unique($exclude));
     }
 
     /**
-     * Medium difficulty: current default behavior.
-     */
-    private function getMediumDifficultyInstructions(string $language): array
-    {
-        if ($language === 'ar') {
-            return [
-                'wordInstruction' => "A single, recognizable noun everyone knows.\nAvoid the most overused words (pizza, car, house, dog, ocean, tree).\nPrefer specific, evocative nouns (lighthouse, astronaut, telescope, compass, parachute, archaeologist).",
-                'hintInstruction' => 'The hint must be a STRONG association but AMBIGUOUS enough that 2-3 other common words could match it.',
-                'examples' => "- GOOD: word=\"Umbrella\", hint=\"Rain\" — rain also fits: raincoat, clouds, window, boots\n- GOOD: word=\"Knife\", hint=\"Kitchen\" — kitchen also fits: stove, fridge, chef, recipe\n- GOOD: word=\"Horse\", hint=\"Farm\" — farm also fits: cow, tractor, barn, chicken\n- GOOD: word=\"Clock\", hint=\"Time\" — time also fits: calendar, watch, hourglass",
-            ];
-        }
-
-        return [
-            'wordInstruction' => "A single, recognizable noun everyone knows.\nAvoid the most overused words (pizza, car, house, dog, ocean, tree).\nPrefer specific, evocative nouns (lighthouse, astronaut, telescope, compass, parachute, archaeologist).",
-            'hintInstruction' => 'The hint must be a STRONG association but AMBIGUOUS enough that 2-3 other common words could match it.',
-            'examples' => "- GOOD: word=\"Umbrella\", hint=\"Rain\" — rain also fits: raincoat, clouds, window, boots\n- GOOD: word=\"Knife\", hint=\"Kitchen\" — kitchen also fits: stove, fridge, chef, recipe\n- GOOD: word=\"Horse\", hint=\"Farm\" — farm also fits: cow, tractor, barn, chicken\n- GOOD: word=\"Clock\", hint=\"Time\" — time also fits: calendar, watch, hourglass",
-        ];
-    }
-
-    /**
-     * Hard difficulty: uncommon, specific nouns requiring lateral thinking.
-     */
-    private function getHardDifficultyInstructions(string $language): array
-    {
-        if ($language === 'ar') {
-            return [
-                'wordInstruction' => "The word should be an UNCOMMON, specific noun that requires lateral thinking.\nExamples: astrolabe, trebuchet, bioluminescence, symbiosis, cathode, gargoyle, caldera, corona, quasar, fulcrum\nPrefer abstract or scientific terms, obscure objects, or uncommon concepts.\nDo NOT use simple everyday words.",
-                'hintInstruction' => "The hint should be SUBTLE and could relate to many different words.\nDo NOT make the hint too obvious — it should require lateral thinking.\nThe hint must still be a real, useful association, just more abstract.",
-                'examples' => "- GOOD: word=\"Astrolabe\", hint=\"Navigation\" — navigation also fits: compass, map, sailor, GPS\n- GOOD: word=\"Caldera\", hint=\"Collapse\" — collapse also fits: earthquake, building, economy\n- GOOD: word=\"Trebuchet\", hint=\"Siege\" — siege also fits: prison, army, wall, blockade\n- GOOD: word=\"Corona\", hint=\"Eclipse\" — eclipse also fits: shadow, moon, phase, alignment",
-            ];
-        }
-
-        return [
-            'wordInstruction' => "The word should be an UNCOMMON, specific noun that requires lateral thinking.\nExamples: astrolabe, trebuchet, bioluminescence, symbiosis, cathode, gargoyle, caldera, corona, quasar, fulcrum\nPrefer abstract or scientific terms, obscure objects, or uncommon concepts.\nDo NOT use simple everyday words.",
-            'hintInstruction' => "The hint should be SUBTLE and could relate to many different words.\nDo NOT make the hint too obvious — it should require lateral thinking.\nThe hint must still be a real, useful association, just more abstract.",
-            'examples' => "- GOOD: word=\"Astrolabe\", hint=\"Navigation\" — navigation also fits: compass, map, sailor, GPS\n- GOOD: word=\"Caldera\", hint=\"Collapse\" — collapse also fits: earthquake, building, economy\n- GOOD: word=\"Trebuchet\", hint=\"Siege\" — siege also fits: prison, army, wall, blockade\n- GOOD: word=\"Corona\", hint=\"Eclipse\" — eclipse also fits: shadow, moon, phase, alignment",
-        ];
-    }
-
-    /**
-     * Build the prompt for the AI agent.
-     */
-    private function buildPrompt(string $avoidList, string $language = 'en', ?string $category = null, string $difficulty = 'medium'): string
-    {
-        $categories = [
-            'a profession or occupation',
-            'a tool or instrument',
-            'a place or location',
-            'a vehicle or mode of transport',
-            'a sport or hobby',
-            'a piece of clothing or accessory',
-            'a musical instrument',
-            'a famous landmark or building type',
-            'an animal',
-            'a piece of technology or appliance',
-            'a food or drink',
-            'a natural phenomenon',
-        ];
-
-        $categoryExamplesMap = [
-            'animals' => 'dog, cat, eagle, whale, spider, dolphin, parrot, turtle',
-            'food' => 'pizza, sushi, croissant, pasta, burger, chocolate, salad, soup',
-            'places' => 'beach, mountain, city, desert, island, forest, castle, market',
-            'technology' => 'computer, robot, satellite, drone, phone, camera, laser, battery',
-            'sports' => 'soccer, tennis, swimming, boxing, archery, fencing, surfing, golf',
-            'nature' => 'rainbow, volcano, glacier, waterfall, earthquake, tornado, aurora, coral',
-            'professions' => 'doctor, pilot, chef, astronaut, detective, musician, farmer, engineer',
-            'music' => 'guitar, piano, violin, drums, trumpet, orchestra, concert, melody',
-            'vehicles' => 'airplane, submarine, helicopter, bicycle, train, yacht, skateboard, rocket',
-        ];
-
-        // If a specific category is provided, use it; otherwise pick a random one
-        if ($category !== null && isset($categoryExamplesMap[$category])) {
-            $categoryLine = "- The word MUST be related to the category: {$category}. Example words in this category: {$categoryExamplesMap[$category]}";
-        } else {
-            $randomCategory = $categories[array_rand($categories)];
-            $categoryLine = "- The \"word\" must be from this category: {$randomCategory}";
-        }
-
-        $difficultyInstructions = $this->getDifficultyInstructions($difficulty, $language);
-
-        [$languageName, $extraRule] = match ($language) {
-            'ar' => [
-                'Arabic (Modern Standard Arabic)',
-                '- اكتب الكلمة والتلميح باللغة العربية فقط. لا تستخدم أي حروف لاتينية إطلاقاً.',
-            ],
-            default => [
-                'English',
-                '',
-            ],
-        };
-
-        $prompt = <<<PROMPT
-You are generating a word and hint for the social deduction game "Imposter".
-
-HOW THE GAME WORKS:
-- All players get the SAME word EXCEPT one player (the imposter) who gets only the hint.
-- Players take turns saying ONE word related to their word. The imposter must blend in without knowing the real word.
-- The hint is given to the imposter as their ONLY clue. It must be useful enough that the imposter can participate, but not so specific that they can guess the word.
-
-DIFFICULTY LEVEL: {$difficulty}
-{$difficultyInstructions['wordInstruction']}
-
-HINT requirements for this difficulty:
-{$difficultyInstructions['hintInstruction']}
-
-GENERAL HINT rules:
-- The hint must NOT be a physical part/ingredient
-- The hint must NOT be an abstract quality with no clear association
-- The hint SHOULD be: a related place, activity, context, or strong association
-
-Examples:
-{$difficultyInstructions['examples']}
-
-{$categoryLine}
-
-Respond with a JSON object: { "word": "...", "hint": "..." }
-Both must be a single word in {$languageName}.
-{$extraRule}
-PROMPT;
-
-        if (! empty($avoidList)) {
-            $prompt .= "\n\nDo NOT use any of these words (already used): {$avoidList}";
-        }
-
-        $bannedWords = implode(', ', self::BANNED_WORDS);
-        $prompt .= "\n\nAlso avoid these overused words: {$bannedWords}";
-
-        return $prompt;
-    }
-
-    /**
-     * Build the prompt for batch generation of N word/hint pairs.
-     */
-    private function buildBatchPrompt(int $count, string $avoidList, string $language = 'en', ?string $category = null, string $difficulty = 'medium'): string
-    {
-        $categoryExamplesMap = [
-            'animals' => 'dog, cat, eagle, whale, spider, dolphin, parrot, turtle',
-            'food' => 'pizza, sushi, croissant, pasta, burger, chocolate, salad, soup',
-            'places' => 'beach, mountain, city, desert, island, forest, castle, market',
-            'technology' => 'computer, robot, satellite, drone, phone, camera, laser, battery',
-            'sports' => 'soccer, tennis, swimming, boxing, archery, fencing, surfing, golf',
-            'nature' => 'rainbow, volcano, glacier, waterfall, earthquake, tornado, aurora, coral',
-            'professions' => 'doctor, pilot, chef, astronaut, detective, musician, farmer, engineer',
-            'music' => 'guitar, piano, violin, drums, trumpet, orchestra, concert, melody',
-            'vehicles' => 'airplane, submarine, helicopter, bicycle, train, yacht, skateboard, rocket',
-        ];
-
-        $categoryInstruction = '';
-        if ($category !== null && isset($categoryExamplesMap[$category])) {
-            $categoryInstruction = "- ALL words MUST be related to the category: {$category}. Example words in this category: {$categoryExamplesMap[$category]}";
-        }
-
-        $difficultyInstructions = $this->getDifficultyInstructions($difficulty, $language);
-
-        [$languageName, $extraRule, $bannedExamples] = match ($language) {
-            'ar' => [
-                'Arabic (Modern Standard Arabic)',
-                '- اكتب جميع الكلمات والتلميحات باللغة العربية فقط. لا تستخدم أي حروف لاتينية إطلاقاً.',
-                'مظلة، سكين، حصان، ساعة، بيتزا، تلسكوب، منارة، بوصلة، مفتاح، شمعة، جيتار، قارب، فأس، طبال',
-            ],
-            default => [
-                'English',
-                '',
-                'Umbrella, Knife, Horse, Clock, Crown, Pizza, Telescope, Lighthouse, Compass, Guitar, Astronaut, Parachute, Violin, Candle, Drum, Lantern, Mirror, Bridge, Key',
-            ],
-        };
-
-        $bannedWords = implode(', ', self::BANNED_WORDS);
-
-        $prompt = <<<PROMPT
-Generate EXACTLY {$count} distinct word/hint pairs for the social deduction game "Imposter".
-
-DIFFICULTY LEVEL: {$difficulty}
-{$difficultyInstructions['wordInstruction']}
-
-HINT requirements for this difficulty:
-{$difficultyInstructions['hintInstruction']}
-
-HOW THE GAME WORKS:
-- All players get the SAME word EXCEPT the imposter, who gets only the hint.
-- Players take turns saying ONE word related to their word. The imposter must blend in.
-- The hint is the imposter's ONLY clue about the real word.
-
-Respond with JSON: { "rounds": [ { "word": "...", "hint": "..." }, ... ] }
-Exactly {$count} entries. Keys must be "word" and "hint".
-
-WORD requirements:
-- Single, recognizable noun
-- DO NOT use any of these overused words: {$bannedWords}
-- Spread across different categories: profession, tool, place, vehicle, hobby, instrument, landmark, animal, technology, food, natural phenomenon
-- Every word must be DISTINCT
-- Each word must be from a COMPLETELY DIFFERENT category/semantic domain — no two words should be related to the same topic
-{$categoryInstruction}
-
-HINT requirements (THIS IS CRITICAL — READ CAREFULLY):
-- The hint must be a STRONG association with the word — something most people would think of
-- BUT it must also be ambiguous enough that 2-3 other common words could match it
-- The hint must NOT be a physical part/ingredient (e.g. NOT "wax" for candle, NOT "cheese" for pizza, NOT "mane" for horse)
-- The hint must NOT be an abstract quality (e.g. NOT "lightness" for umbrella, NOT "pressure" for volcano, NOT "solitude" for lighthouse)
-- The hint SHOULD be: a related place, activity, context, or strong association
-
-Examples:
-{$difficultyInstructions['examples']}
-
-Final rules:
-- Each word and hint must be a SINGLE word
-- All values in {$languageName}.
-{$extraRule}
-- Return EXACTLY {$count} entries
-- Do NOT reuse any example words. Forbidden: {$bannedExamples}
-PROMPT;
-
-        if (! empty($avoidList)) {
-            $prompt .= "\n\nAlso avoid these words (used in previous games): {$avoidList}";
-        }
-
-        return $prompt;
-    }
-
-    /**
-     * Get a fallback word from the hardcoded list, avoiding used words.
+     * Pick a static fallback pair when the DB pool is unavailable.
      *
      * @return array{word: string, hint: string}
      */
-    private function getFallbackWord(array $usedWords, string $difficulty = 'medium'): array
+    private function fallbackWord(string $difficulty = 'medium'): array
     {
         $fallbackList = match ($difficulty) {
             'easy' => self::FALLBACK_WORDS_EASY,
@@ -649,15 +277,7 @@ PROMPT;
             default => self::FALLBACK_WORDS,
         };
 
-        $available = array_filter($fallbackList, function (array $pair) use ($usedWords) {
-            return ! in_array(strtolower($pair['word']), array_map('strtolower', $usedWords));
-        });
-
-        if (empty($available)) {
-            $available = $fallbackList;
-        }
-
-        return Arr::random($available);
+        return Arr::random($fallbackList);
     }
 
     /**
